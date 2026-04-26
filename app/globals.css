@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #007AFF;
+  --color-primary-container: #0070eb;
+  --color-on-primary: #ffffff;
+  --color-primary-fixed: #d8e2ff;
+  --color-on-primary-fixed: #001a41;
+  
+  --color-secondary: #5856D6;
+  --color-secondary-container: #6664e4;
+  --color-on-secondary: #ffffff;
+  
+  --color-tertiary: #9e3d00;
+  --color-tertiary-fixed: #ffdbcc;
+  
+  --color-surface: #faf9fe;
+  --color-surface-dim: #dad9df;
+  --color-surface-bright: #faf9fe;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4f3f8;
+  --color-surface-container: #eeedf3;
+  --color-surface-container-high: #e9e7ed;
+  
+  --color-on-surface: #1a1b1f;
+  --color-on-surface-variant: #414755;
+  
+  --color-outline: #717786;
+  --color-outline-variant: #c1c6d7;
+  
+  --color-error: #ba1a1a;
+  
+  --spacing-container-margin: 20px;
+  --spacing-unit: 8px;
+  --spacing-element-gap: 16px;
+  --spacing-stack-space-lg: 32px;
+  --spacing-touch-target-min: 56px;
+  
+  --font-sans: var(--font-lexend), ui-sans-serif, system-ui, sans-serif;
+  
+  --radius-sm: 0.25rem;
+  --radius-DEFAULT: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    min-height: 100dvh;
+  }
+}
