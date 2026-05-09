@@ -4,6 +4,7 @@ from fastapi import Depends
 from contextlib import asynccontextmanager
 from app import dependencies
 from app.config import settings
+from app.routers import auth
 from fastapi import FastAPI
 import asyncpg
 
@@ -15,6 +16,8 @@ async def lifespan(app: FastAPI):
     await dependencies.pool.close()
 
 app = FastAPI(lifespan=lifespan)
+
+app.include_router(auth.router, tags=["Auth"])
 
 @app.get("/")
 async def home():

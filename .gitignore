@@ -21,4 +21,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-venv
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
