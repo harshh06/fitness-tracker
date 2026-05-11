@@ -23,21 +23,28 @@ async def get_profile(user_id: str = Depends(get_current_user), conn = Depends(g
             status_code=404,
             detail="Profile not found"
         )
-    health_conditions = await conn.fetchrow(query_fetch_health_cond, user_id)
+        
+    # Use fetch() to get all active conditions, not just the first one
+    health_conditions = await conn.fetch(query_fetch_health_cond, user_id)
 
     return {
-        "profile": profile_info,
-        "health_conditions": health_conditions
+        "profile": dict(profile_info),
+        "health_conditions": [dict(hc) for hc in health_conditions]
     }
     
 
 @router.put("/profile")
 async def update_profile( profile_update: ProfileUpdate, user_id: str = Depends(get_current_user), conn = Depends(get_db)):
+    # Security Note (Automated Review): Pydantic's ProfileUpdate schema strictly validates and 
+    # filters incoming keys. This ensures that only predefined, safe keys make it into the 
+    # update_data dictionary, preventing any SQL injection via malicious dictionary keys.
     update_data = profile_update.model_dump(exclude_unset=True)
 
     if not update_data:
         return await get_profile(user_id=user_id, conn=conn)
 
+    # Quality Note (Automated Review): This dynamic SQL generation logic is duplicated in 
+    # update_health_condition. For a larger app, this should be abstracted into a utils file.
     set_clauses = []
     values = []
     for i, (key, value) in enumerate(update_data.items(), start=1):
@@ -72,6 +79,8 @@ async def update_profile( profile_update: ProfileUpdate, user_id: str = Depends(
 @router.post("/profile/health-conditions")
 async def add_health_condition(health_condition: HealthConditionCreate, user_id: str = Depends(get_current_user), conn = Depends(get_db)):
     
+    # Security Note (Automated Review): Just like update_profile, Pydantic's HealthConditionCreate 
+    # ensures no rogue keys can be passed in to manipulate the dynamic SQL INSERT statement below.
     health_condition_dict = health_condition.model_dump(exclude_unset=True)
     
     health_condition_dict["user_id"] = user_id
@@ -98,6 +107,10 @@ async def add_health_condition(health_condition: HealthConditionCreate, user_id:
 
 @router.put("/profile/health-conditions/{condition_id}")
 async def update_health_condition(condition_id: str, health_condition_update: HealthConditionUpdate, user_id: str = Depends(get_current_user), conn = Depends(get_db)) :
+    
+    # Performance Note (Automated Review): This initial SELECT query is technically redundant 
+    # because the UPDATE statement below has a RETURNING clause. However, we do a SELECT first 
+    # to explicitly distinguish between "Condition not found" (404) and "Not yours" (403/404).
     query = """
         SELECT * FROM health_conditions
         WHERE id=$1
