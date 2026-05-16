@@ -49,3 +49,54 @@ class ProfileResponse(ProfileUpdate):
     updated_at: datetime
     health_conditions: List[HealthConditionResponse] = [] 
 
+
+# --- Exercise Muscles Schemas ---
+
+class ExerciseMuscleCreate(BaseModel):
+    muscle_group: str
+    role: Optional[str] = None
+
+class ExerciseMuscleResponse(ExerciseMuscleCreate):
+    id: UUID
+    exercise_id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Exercise Contraindications Schemas ---
+
+class ExerciseContraindicationCreate(BaseModel):
+    condition_name: str
+    risk_level: Optional[str] = None
+    modification_notes: Optional[str] = None
+    alternative_exercise_id: Optional[UUID] = None
+
+class ExerciseContraindicationResponse(ExerciseContraindicationCreate):
+    id: UUID
+    exercise_id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Exercise Library Schemas ---
+
+class ExerciseBase(BaseModel):
+    name: str
+    category: Optional[str] = None
+    equipment: Optional[str] = None
+    difficulty: Optional[str] = None
+    instructions: Optional[str] = None
+    is_compound: Optional[bool] = False
+
+class ExerciseCreate(ExerciseBase):
+    muscles: Optional[List[ExerciseMuscleCreate]] = []
+
+class ExerciseResponse(ExerciseBase):
+    id: UUID
+    is_system: Optional[bool] = False
+    created_by: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+    exercise_muscles: List[ExerciseMuscleResponse] = []
+    exercise_contraindications: List[ExerciseContraindicationResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+

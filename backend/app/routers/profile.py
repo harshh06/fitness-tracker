@@ -7,7 +7,7 @@ from app.dependencies import get_current_user, get_db
 
 router = APIRouter(prefix="/profile")
 
-@router.get("/profile")
+@router.get("/")
 async def get_profile(user_id: str = Depends(get_current_user), conn = Depends(get_db)):
     query_fetch_profile = """
         SELECT * FROM profiles 
@@ -33,7 +33,7 @@ async def get_profile(user_id: str = Depends(get_current_user), conn = Depends(g
     }
     
 
-@router.put("/profile")
+@router.put("/")
 async def update_profile( profile_update: ProfileUpdate, user_id: str = Depends(get_current_user), conn = Depends(get_db)):
     # Security Note (Automated Review): Pydantic's ProfileUpdate schema strictly validates and 
     # filters incoming keys. This ensures that only predefined, safe keys make it into the 
@@ -76,7 +76,7 @@ async def update_profile( profile_update: ProfileUpdate, user_id: str = Depends(
     return profile_dict
 
 
-@router.post("/profile/health-conditions")
+@router.post("/health-conditions")
 async def add_health_condition(health_condition: HealthConditionCreate, user_id: str = Depends(get_current_user), conn = Depends(get_db)):
     
     # Security Note (Automated Review): Just like update_profile, Pydantic's HealthConditionCreate 
@@ -105,7 +105,7 @@ async def add_health_condition(health_condition: HealthConditionCreate, user_id:
 
     return dict(res)
 
-@router.put("/profile/health-conditions/{condition_id}")
+@router.put("/health-conditions/{condition_id}")
 async def update_health_condition(condition_id: str, health_condition_update: HealthConditionUpdate, user_id: str = Depends(get_current_user), conn = Depends(get_db)) :
     
     # Performance Note (Automated Review): This initial SELECT query is technically redundant 
@@ -156,7 +156,7 @@ async def update_health_condition(condition_id: str, health_condition_update: He
     return dict(updated_health_condition)
 
 
-@router.delete("/profile/health-conditions/{condition_id}")
+@router.delete("/health-conditions/{condition_id}")
 async def delete_health_condition(condition_id: str, user_id: str = Depends(get_current_user), conn = Depends(get_db)) :
     query = """
         SELECT * FROM health_conditions
