@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 export default function TopAppBar() {
   const pathname = usePathname();
 
-  // Hide on workout page (has its own custom header)
-  if (pathname === "/workout") return null;
+  // Hide on workout page (has its own custom header) and auth pages
+  if (pathname === "/workout" || pathname === "/login" || pathname === "/signup") return null;
 
   return (
     <header className="bg-white/90 backdrop-blur-md fixed top-0 w-full z-50 border-b border-surface-variant shadow-sm flex justify-between items-center px-5 py-3">

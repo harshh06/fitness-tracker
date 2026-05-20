@@ -15,8 +15,8 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const pathname = usePathname();
 
-  // Hide on active workout page (has its own sticky footer)
-  if (pathname === "/workout") return null;
+  // Hide on active workout page (has its own sticky footer) and auth pages
+  if (pathname === "/workout" || pathname === "/login" || pathname === "/signup") return null;
 
   return (
     <nav className="md:hidden bg-white fixed bottom-0 w-full z-50 border-t rounded-t-2xl border-surface-variant shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">

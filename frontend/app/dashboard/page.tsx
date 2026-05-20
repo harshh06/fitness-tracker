@@ -35,11 +35,11 @@ export default function DashboardPage() {
       <section className="grid grid-cols-2 gap-element-gap">
         <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
           <div className="flex items-center gap-2 text-primary">
-            <span className="material-symbols-outlined text-[20px]">local_fire_department</span>
-            <span className="font-label-sm uppercase">Weekly Burn</span>
+            <span className="material-symbols-outlined text-[20px]">fitness_center</span>
+            <span className="font-label-sm uppercase">Weekly Volume</span>
           </div>
           <span className="font-headline-md text-on-surface">
-            2,450 <span className="font-body-md text-on-surface-variant">kcal</span>
+            15,200 <span className="font-body-md text-on-surface-variant">lbs</span>
           </span>
         </div>
         <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
@@ -71,7 +71,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex flex-col">
                 <span className="font-body-lg font-medium text-on-surface">Upper Body Power</span>
-                <span className="font-label-sm text-on-surface-variant">Tuesday • 45 mins • 320 kcal</span>
+                <span className="font-label-sm text-on-surface-variant">Tuesday • 45 mins • 15,200 lbs</span>
               </div>
             </div>
             <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
@@ -87,7 +87,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex flex-col">
                 <span className="font-body-lg font-medium text-on-surface">Endurance Run</span>
-                <span className="font-label-sm text-on-surface-variant">Sunday • 60 mins • 580 kcal</span>
+                <span className="font-label-sm text-on-surface-variant">Sunday • 60 mins • 22,500 lbs</span>
               </div>
             </div>
             <span className="material-symbols-outlined text-outline-variant">chevron_right</span>

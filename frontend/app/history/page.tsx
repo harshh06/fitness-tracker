@@ -18,6 +18,7 @@ interface WorkoutEntry {
   date: string;
   title: string;
   duration: string;
+  volume?: string;
   icon: string;
   exercises?: Exercise[];
 }
@@ -27,6 +28,7 @@ const MOCK_HISTORY: WorkoutEntry[] = [
     date: "April 20, 2026",
     title: "Upper Body Power",
     duration: "65 mins",
+    volume: "1,485 lbs",
     icon: "fitness_center",
     exercises: [
       {
@@ -55,8 +57,9 @@ const MOCK_HISTORY: WorkoutEntry[] = [
   },
   {
     date: "April 16, 2026",
-    title: "Lower Body Strength • 4 Exercises",
+    title: "Lower Body Strength",
     duration: "45 mins",
+    volume: "8,400 lbs",
     icon: "fitness_center",
   },
   {
@@ -71,6 +74,8 @@ function WorkoutCard({ entry, defaultExpanded = false }: { entry: WorkoutEntry; 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const hasExercises = entry.exercises && entry.exercises.length > 0;
 
+  const subtitle = [entry.title, entry.volume, entry.duration].filter(Boolean).join(" • ");
+
   return (
     <article className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 overflow-hidden">
       {/* Card Header (always visible) */}
@@ -78,8 +83,9 @@ function WorkoutCard({ entry, defaultExpanded = false }: { entry: WorkoutEntry; 
         variant="ghost"
         onClick={() => hasExercises && setIsExpanded(!isExpanded)}
         className={cn(
-          "w-full p-4 flex justify-between items-center h-auto rounded-none",
-          hasExercises && "cursor-pointer"
+          "w-full p-4 flex justify-between items-center h-auto rounded-none active:scale-[0.99] transition-transform",
+          hasExercises && "cursor-pointer",
+          !hasExercises && "hover:bg-surface-container-low"
         )}
       >
         <div className="flex items-center gap-4 text-left">
@@ -95,9 +101,7 @@ function WorkoutCard({ entry, defaultExpanded = false }: { entry: WorkoutEntry; 
           </div>
           <div>
             <h2 className="font-headline-md text-on-surface text-base mb-1">{entry.date}</h2>
-            <p className="font-body-md text-on-surface-variant text-sm">
-              {entry.title} • {entry.duration}
-            </p>
+            <p className="font-body-md text-on-surface-variant text-sm">{subtitle}</p>
           </div>
         </div>
         {hasExercises && (
@@ -109,6 +113,9 @@ function WorkoutCard({ entry, defaultExpanded = false }: { entry: WorkoutEntry; 
           >
             expand_more
           </span>
+        )}
+        {!hasExercises && (
+          <span className="material-symbols-outlined text-outline">expand_more</span>
         )}
       </Button>
 
@@ -155,6 +162,11 @@ export default function HistoryPage() {
         {MOCK_HISTORY.map((entry, idx) => (
           <WorkoutCard key={entry.date} entry={entry} defaultExpanded={idx === 0} />
         ))}
+
+        {/* Load More Button */}
+        <button className="mt-4 w-full bg-primary text-on-primary font-label-lg py-3 rounded-xl shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2 hover:bg-primary/90 uppercase tracking-wider">
+          Load More
+        </button>
       </div>
     </main>
   );
