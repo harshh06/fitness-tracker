@@ -100,3 +100,86 @@ class ExerciseResponse(ExerciseBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Workout Schemas ---
+
+class WorkoutCreate(BaseModel):
+    title: Optional[str] = None
+    workout_type: Optional[str] = None
+
+class WorkoutUpdate(BaseModel):
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    rating: Optional[int] = None
+    energy_level: Optional[int] = None
+    pain_notes: Optional[str] = None
+    duration_mins: Optional[int] = None
+
+class WorkoutExerciseCreate(BaseModel):
+    exercise_id: UUID
+    sort_order: int
+    notes: Optional[str] = None
+    rest_seconds: Optional[int] = 90
+
+class SetCreate(BaseModel):
+    set_number: int
+    set_type: Optional[str] = "working"
+    weight_lbs: Optional[float] = None
+    reps: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    distance_meters: Optional[float] = None
+    is_completed: Optional[bool] = False
+    rpe: Optional[int] = None
+
+class SetUpdate(BaseModel):
+    set_number: Optional[int] = None
+    set_type: Optional[str] = None
+    weight_lbs: Optional[float] = None
+    reps: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    distance_meters: Optional[float] = None
+    is_completed: Optional[bool] = None
+    rpe: Optional[int] = None
+
+class SetResponse(BaseModel):
+    id: UUID
+    workout_exercise_id: UUID
+    set_number: int
+    set_type: Optional[str] = None
+    weight_lbs: Optional[float] = None
+    reps: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    distance_meters: Optional[float] = None
+    is_completed: Optional[bool] = False
+    rpe: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkoutExerciseResponse(BaseModel):
+    id: UUID
+    workout_id: UUID
+    exercise_id: UUID
+    sort_order: int
+    notes: Optional[str] = None
+    rest_seconds: Optional[int] = None
+    exercise_name: Optional[str] = None
+    sets: List[SetResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+class WorkoutResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    title: Optional[str] = None
+    workout_type: Optional[str] = None
+    notes: Optional[str] = None
+    rating: Optional[int] = None
+    energy_level: Optional[int] = None
+    pain_notes: Optional[str] = None
+    duration_mins: Optional[int] = None
+    created_at: Optional[datetime] = None
+    exercises: List[WorkoutExerciseResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
