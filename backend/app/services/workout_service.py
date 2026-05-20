@@ -1,12 +1,16 @@
+import asyncpg
 from fastapi import HTTPException
 
 
 async def verify_workout_ownership(conn, workout_id: str, user_id: str):
     """Verify that the workout belongs to the user. Returns the workout row or raises."""
-    workout = await conn.fetchrow(
-        "SELECT * FROM workouts WHERE id = $1 AND is_deleted = false",
-        workout_id
-    )
+    try:
+        workout = await conn.fetchrow(
+            "SELECT * FROM workouts WHERE id = $1 AND is_deleted = false",
+            workout_id
+        )
+    except asyncpg.exceptions.DataError:
+        raise HTTPException(status_code=400, detail="Invalid workout ID format")
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
     if str(workout["user_id"]) != str(user_id):
@@ -16,10 +20,13 @@ async def verify_workout_ownership(conn, workout_id: str, user_id: str):
 
 async def verify_workout_exercise(conn, workout_id: str, workout_exercise_id: str):
     """Verify that the workout_exercise belongs to the workout."""
-    row = await conn.fetchrow(
-        "SELECT * FROM workout_exercises WHERE id = $1 AND workout_id = $2",
-        workout_exercise_id, workout_id
-    )
+    try:
+        row = await conn.fetchrow(
+            "SELECT * FROM workout_exercises WHERE id = $1 AND workout_id = $2",
+            workout_exercise_id, workout_id
+        )
+    except asyncpg.exceptions.DataError:
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     if not row:
         raise HTTPException(status_code=404, detail="Exercise not found in this workout")
     return row
@@ -28,11 +35,14 @@ async def verify_workout_exercise(conn, workout_id: str, workout_exercise_id: st
 # ── Workout CRUD ──────────────────────────────────────────────
 
 async def create_workout(conn, user_id: str, title=None, workout_type=None):
-    row = await conn.fetchrow(
-        """INSERT INTO workouts (user_id, title, workout_type)
-           VALUES ($1, $2, $3) RETURNING *""",
-        user_id, title, workout_type
-    )
+    try:
+        row = await conn.fetchrow(
+            """INSERT INTO workouts (user_id, title, workout_type)
+               VALUES ($1, $2, $3) RETURNING *""",
+            user_id, title, workout_type
+        )
+    except asyncpg.exceptions.CheckViolationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
     result = dict(row)
     result["exercises"] = []
     return result
@@ -105,7 +115,10 @@ async def update_workout(conn, workout_id: str, data: dict):
         UPDATE workouts SET {', '.join(set_clauses)}
         WHERE id = ${len(values)} RETURNING *
     """
-    row = await conn.fetchrow(query, *values)
+    try:
+        row = await conn.fetchrow(query, *values)
+    except asyncpg.exceptions.CheckViolationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
     return dict(row)
 
 
@@ -127,11 +140,16 @@ async def soft_delete_workout(conn, workout_id: str):
 # ── Workout Exercises ─────────────────────────────────────────
 
 async def add_exercise_to_workout(conn, workout_id: str, exercise_id, sort_order, notes=None, rest_seconds=90):
-    row = await conn.fetchrow(
-        """INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes, rest_seconds)
-           VALUES ($1, $2, $3, $4, $5) RETURNING *""",
-        workout_id, exercise_id, sort_order, notes, rest_seconds
-    )
+    try:
+        row = await conn.fetchrow(
+            """INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes, rest_seconds)
+               VALUES ($1, $2, $3, $4, $5) RETURNING *""",
+            workout_id, exercise_id, sort_order, notes, rest_seconds
+        )
+    except asyncpg.exceptions.ForeignKeyViolationError:
+        raise HTTPException(status_code=400, detail="Exercise not found in library")
+    except asyncpg.exceptions.CheckViolationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
     result = dict(row)
 
     # Include exercise name for convenience
@@ -166,7 +184,12 @@ async def add_set(conn, workout_exercise_id, data: dict):
         VALUES ({', '.join(placeholders)})
         RETURNING *
     """
-    row = await conn.fetchrow(query, *values)
+    try:
+        row = await conn.fetchrow(query, *values)
+    except asyncpg.exceptions.CheckViolationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
+    except asyncpg.exceptions.ForeignKeyViolationError:
+        raise HTTPException(status_code=400, detail="Workout exercise not found")
     return dict(row)
 
 
@@ -186,7 +209,10 @@ async def update_set(conn, set_id: str, data: dict):
         UPDATE exercise_sets SET {', '.join(set_clauses)}
         WHERE id = ${len(values)} RETURNING *
     """
-    row = await conn.fetchrow(query, *values)
+    try:
+        row = await conn.fetchrow(query, *values)
+    except asyncpg.exceptions.CheckViolationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
     if not row:
         raise HTTPException(status_code=404, detail="Set not found")
     return dict(row)
