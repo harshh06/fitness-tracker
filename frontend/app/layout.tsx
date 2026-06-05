@@ -3,6 +3,7 @@ import { Lexend } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/layout/BottomNav";
 import TopAppBar from "@/components/layout/TopAppBar";
+import { AuthProvider } from "@/lib/auth-context";
 
 const lexend = Lexend({
   variable: "--font-lexend",
@@ -41,9 +42,11 @@ export default function RootLayout({
         `}</style>
       </head>
       <body className="min-h-full flex flex-col bg-surface text-on-surface font-sans">
-        <TopAppBar />
-        {children}
-        <BottomNav />
+        <AuthProvider>
+          <TopAppBar />
+          {children}
+          <BottomNav />
+        </AuthProvider>
       </body>
     </html>
   );
