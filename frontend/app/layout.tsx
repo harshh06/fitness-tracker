@@ -4,6 +4,8 @@ import "./globals.css";
 import BottomNav from "@/components/layout/BottomNav";
 import TopAppBar from "@/components/layout/TopAppBar";
 import { AuthProvider } from "@/lib/auth-context";
+import { ToastProvider } from "@/lib/toast-context";
+import AuthGuard from "@/components/layout/AuthGuard";
 
 const lexend = Lexend({
   variable: "--font-lexend",
@@ -42,13 +44,18 @@ export default function RootLayout({
         `}</style>
       </head>
       <body className="min-h-full flex flex-col bg-surface text-on-surface font-sans">
-        <AuthProvider>
-          <TopAppBar />
-          {children}
-          <BottomNav />
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <AuthGuard>
+              <TopAppBar />
+              {children}
+              <BottomNav />
+            </AuthGuard>
+          </AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );
 }
+
 

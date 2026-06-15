@@ -1,7 +1,92 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useAnalytics } from "@/lib/hooks/useAnalytics";
+import { useWorkouts, type WorkoutSummary } from "@/lib/hooks/useWorkouts";
+import { useAuth } from "@/lib/auth-context";
+
+function formatDuration(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function formatVolume(lbs: number): string {
+  if (lbs >= 1000) return `${(lbs / 1000).toFixed(1)}k`;
+  return String(Math.round(lbs));
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+}
+
+function WorkoutTypeIcon({ type }: { type: string }) {
+  const iconMap: Record<string, { icon: string; bg: string; fg: string }> = {
+    strength: { icon: "fitness_center", bg: "bg-primary-fixed", fg: "text-primary" },
+    cardio: { icon: "directions_run", bg: "bg-tertiary-fixed", fg: "text-tertiary" },
+    flexibility: { icon: "self_improvement", bg: "bg-secondary/10", fg: "text-secondary" },
+    mixed: { icon: "exercise", bg: "bg-primary-fixed", fg: "text-primary" },
+  };
+  const { icon, bg, fg } = iconMap[type] || iconMap.strength;
+  return (
+    <div className={`w-12 h-12 rounded-full ${bg} flex items-center justify-center ${fg}`}>
+      <span className="material-symbols-outlined">{icon}</span>
+    </div>
+  );
+}
+
+function RecentWorkoutCard({ workout }: { workout: WorkoutSummary }) {
+  return (
+    <Link
+      href="/history"
+      className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/20 flex items-center justify-between active:bg-surface-container-low transition-colors"
+    >
+      <div className="flex items-center gap-4">
+        <WorkoutTypeIcon type={workout.workout_type} />
+        <div className="flex flex-col">
+          <span className="font-body-lg font-medium text-on-surface">
+            {workout.title || "Workout"}
+          </span>
+          <span className="font-label-sm text-on-surface-variant">
+            {formatDate(workout.started_at)}
+            {workout.duration_mins ? ` • ${workout.duration_mins} mins` : ""}
+          </span>
+        </div>
+      </div>
+      <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
+    </Link>
+  );
+}
+
+function StatSkeleton() {
+  return (
+    <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2 animate-pulse">
+      <div className="h-4 w-20 bg-surface-container rounded-md" />
+      <div className="h-6 w-16 bg-surface-container rounded-md" />
+    </div>
+  );
+}
+
+function WorkoutSkeleton() {
+  return (
+    <div className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/20 flex items-center gap-4 animate-pulse">
+      <div className="w-12 h-12 rounded-full bg-surface-container" />
+      <div className="flex flex-col gap-2 flex-1">
+        <div className="h-4 w-32 bg-surface-container rounded-md" />
+        <div className="h-3 w-48 bg-surface-container rounded-md" />
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const { summary, isLoading: analyticsLoading } = useAnalytics(1);
+  const { workouts, isLoading: workoutsLoading } = useWorkouts(5);
+
   return (
     <main className="px-container-margin py-stack-space-lg flex flex-col gap-stack-space-lg pt-20 pb-32">
       {/* Greeting Section */}
@@ -9,7 +94,9 @@ export default function DashboardPage() {
         <h2 className="font-label-lg text-on-surface-variant uppercase tracking-wider">
           Today&apos;s Focus
         </h2>
-        <h1 className="font-headline-lg text-headline-lg text-on-surface">Ready to crush it?</h1>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface">
+          {user?.display_name ? `Hey ${user.display_name}!` : "Ready to crush it?"}
+        </h1>
       </section>
 
       {/* Massive CTA */}
@@ -31,24 +118,45 @@ export default function DashboardPage() {
         </Link>
       </section>
 
-      {/* Minimal Data Snippets (Bento-ish) */}
+      {/* Stats */}
       <section className="grid grid-cols-2 gap-element-gap">
-        <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-primary">
-            <span className="material-symbols-outlined text-[20px]">local_fire_department</span>
-            <span className="font-label-sm uppercase">Weekly Burn</span>
-          </div>
-          <span className="font-headline-md text-on-surface">
-            2,450 <span className="font-body-md text-on-surface-variant">kcal</span>
-          </span>
-        </div>
-        <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-primary">
-            <span className="material-symbols-outlined text-[20px]">timer</span>
-            <span className="font-label-sm uppercase">Active Time</span>
-          </div>
-          <span className="font-headline-md text-on-surface">4h 15m</span>
-        </div>
+        {analyticsLoading ? (
+          <>
+            <StatSkeleton />
+            <StatSkeleton />
+          </>
+        ) : summary ? (
+          <>
+            <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-primary">
+                <span className="material-symbols-outlined text-[20px]">local_fire_department</span>
+                <span className="font-label-sm uppercase">Volume</span>
+              </div>
+              <span className="font-headline-md text-on-surface">
+                {formatVolume(summary.total_volume_lbs)}{" "}
+                <span className="font-body-md text-on-surface-variant">lbs</span>
+              </span>
+            </div>
+            <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-primary">
+                <span className="material-symbols-outlined text-[20px]">timer</span>
+                <span className="font-label-sm uppercase">Active Time</span>
+              </div>
+              <span className="font-headline-md text-on-surface">
+                {formatDuration(summary.total_duration_mins)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2 items-center justify-center text-center min-h-[80px]">
+              <p className="font-body-md text-on-surface-variant">No data yet</p>
+            </div>
+            <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2 items-center justify-center text-center min-h-[80px]">
+              <p className="font-body-md text-on-surface-variant">No data yet</p>
+            </div>
+          </>
+        )}
       </section>
 
       {/* Recent Activity */}
@@ -60,38 +168,23 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="flex flex-col gap-3">
-          {/* Card 1 */}
-          <Link
-            href="/history"
-            className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/20 flex items-center justify-between active:bg-surface-container-low transition-colors"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined">fitness_center</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-body-lg font-medium text-on-surface">Upper Body Power</span>
-                <span className="font-label-sm text-on-surface-variant">Tuesday • 45 mins • 320 kcal</span>
-              </div>
+          {workoutsLoading ? (
+            <>
+              <WorkoutSkeleton />
+              <WorkoutSkeleton />
+            </>
+          ) : workouts.length > 0 ? (
+            workouts.slice(0, 5).map((w) => (
+              <RecentWorkoutCard key={w.id} workout={w} />
+            ))
+          ) : (
+            <div className="bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/20 text-center">
+              <span className="material-symbols-outlined text-4xl text-outline mb-2">fitness_center</span>
+              <p className="font-body-lg text-on-surface-variant">
+                No workouts yet. Start your first one!
+              </p>
             </div>
-            <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
-          </Link>
-          {/* Card 2 */}
-          <Link
-            href="/history"
-            className="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/20 flex items-center justify-between active:bg-surface-container-low transition-colors"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-tertiary">
-                <span className="material-symbols-outlined">directions_run</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-body-lg font-medium text-on-surface">Endurance Run</span>
-                <span className="font-label-sm text-on-surface-variant">Sunday • 60 mins • 580 kcal</span>
-              </div>
-            </div>
-            <span className="material-symbols-outlined text-outline-variant">chevron_right</span>
-          </Link>
+          )}
         </div>
       </section>
     </main>

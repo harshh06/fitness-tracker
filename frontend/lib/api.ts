@@ -203,7 +203,15 @@ async function request<T>(
   const data = await res.json();
 
   if (!res.ok) {
-    throw new ApiError(res.status, data.detail ?? "Something went wrong");
+    let detail = "Something went wrong";
+    if (typeof data.detail === "string") {
+      detail = data.detail;
+    } else if (Array.isArray(data.detail)) {
+      detail = data.detail.map((e: any) => `${e.loc ? e.loc.join(".") : "field"}: ${e.msg}`).join(", ");
+    } else if (data.detail && typeof data.detail === "object") {
+      detail = JSON.stringify(data.detail);
+    }
+    throw new ApiError(res.status, detail);
   }
 
   return data as T;

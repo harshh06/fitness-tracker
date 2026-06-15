@@ -10,6 +10,7 @@ import {
   isAuthenticated,
   onUnauthorized,
 } from "./api";
+import { useToast } from "./toast-context";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { showToast } = useToast();
 
   // Load initial session on mount (guarantees hydration-safety for SSR)
   useEffect(() => {
@@ -63,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error("Failed to load session:", err);
+        showToast("Session expired. Please log in again.", "error");
         // If profile fetch fails, clear invalid tokens
         clearTokens();
         setToken(null);
@@ -78,9 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     onUnauthorized(() => {
       setUser(null);
       setToken(null);
+      showToast("Session expired. Please log in again.", "error");
       router.push("/login");
     });
-  }, [router]);
+  }, [router, showToast]);
 
   // ── Auth Operations ────────────────────────────────────────
 
@@ -99,11 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const profile = await api.get<Profile>("/profile");
       setUser(profile);
 
+      showToast("Logged in successfully!", "success");
       router.push("/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       clearTokens();
       setToken(null);
       setUser(null);
+      showToast(err?.detail || "Invalid email or password. Please try again.", "error");
       throw err;
     } finally {
       setIsLoading(false);
@@ -125,11 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const profile = await api.put<Profile>("/profile", { display_name: name });
       setUser(profile);
 
+      showToast("Account created successfully!", "success");
       router.push("/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       clearTokens();
       setToken(null);
       setUser(null);
+      showToast(err?.detail || "Signup failed. Please try again.", "error");
       throw err;
     } finally {
       setIsLoading(false);
@@ -140,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearTokens();
     setToken(null);
     setUser(null);
+    showToast("Logged out successfully.", "info");
     router.push("/login");
   };
 
