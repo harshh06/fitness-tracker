@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setToken(accessToken);
 
           // Fetch the live profile from the backend
-          const profile = await api.get<Profile>("/profile");
+          const profile = await api.get<Profile>("/profile/");
           setUser(profile);
         }
       } catch (err) {
@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.access_token);
 
       // Immediately fetch user profile
-      const profile = await api.get<Profile>("/profile");
+      const profile = await api.get<Profile>("/profile/");
       setUser(profile);
 
       showToast("Logged in successfully!", "success");
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.access_token);
 
       // Create/Update profile with the user's name
-      const profile = await api.put<Profile>("/profile", { display_name: name });
+      const profile = await api.put<Profile>("/profile/", { display_name: name });
       setUser(profile);
 
       showToast("Account created successfully!", "success");
