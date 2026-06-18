@@ -1,69 +1,54 @@
-import { useState, useEffect, useRef } from "react";
-import { api } from "@/lib/api";
+import { useState, useMemo } from "react";
+import { useAuth, type ExerciseSearchResult } from "@/lib/auth-context";
+import Fuse from "fuse.js";
 
-// ── Types ─────────────────────────────────────────────────────
+export type { ExerciseSearchResult };
 
-export interface ExerciseSearchResult {
-  id: string;
-  name: string;
-  category: string;
-  equipment: string;
-  difficulty: string;
-  instructions: string | null;
-  is_compound: boolean;
-  is_system: boolean;
-  created_by: string | null;
-  created_at: string;
-}
-
-// ── Hook ──────────────────────────────────────────────────────
-
-export function useExerciseSearch(debounceMs: number = 300) {
+export function useExerciseSearch() {
+  const { exercises, isLoadingData } = useAuth();
   const [query, setQuery] = useState("");
   const [muscleGroup, setMuscleGroup] = useState("");
   const [equipment, setEquipment] = useState("");
-  const [results, setResults] = useState<ExerciseSearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    // Clear previous timer
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+  const fuse = useMemo(() => {
+    return new Fuse(exercises, {
+      keys: [
+        { name: "name", weight: 0.6 },
+        { name: "muscles", weight: 0.3 },
+        { name: "category", weight: 0.1 },
+        { name: "equipment", weight: 0.1 },
+      ],
+      threshold: 0.4,
+      ignoreLocation: true,
+    });
+  }, [exercises]);
 
-    // Don't search if all filters are empty
+  const results = useMemo(() => {
     if (!query && !muscleGroup && !equipment) {
-      setResults([]);
-      return;
+      return [];
     }
 
-    timeoutRef.current = setTimeout(async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    let filtered = exercises;
 
-        const params: Record<string, string> = {};
-        if (query) params.q = query;
-        if (muscleGroup) params.muscle_group = muscleGroup;
-        if (equipment) params.equipment = equipment;
+    // Apply strict filters first if set
+    if (muscleGroup) {
+      filtered = filtered.filter((e) =>
+        e.muscles?.some((m) => m.toLowerCase() === muscleGroup.toLowerCase())
+      );
+    }
+    if (equipment) {
+      filtered = filtered.filter((e) =>
+        e.equipment?.toLowerCase() === equipment.toLowerCase()
+      );
+    }
 
-        const data = await api.get<ExerciseSearchResult[]>("/exercises/search", {
-          params,
-        });
-        setResults(data);
-      } catch (err: any) {
-        setError(err?.detail || "Failed to search exercises");
-      } finally {
-        setIsLoading(false);
-      }
-    }, debounceMs);
+    if (query) {
+      const searchResults = fuse.search(query);
+      return searchResults.map((r) => r.item).filter((item) => filtered.includes(item));
+    }
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [query, muscleGroup, equipment, debounceMs]);
+    return filtered;
+  }, [query, muscleGroup, equipment, exercises, fuse]);
 
   return {
     query,
@@ -73,7 +58,7 @@ export function useExerciseSearch(debounceMs: number = 300) {
     equipment,
     setEquipment,
     results,
-    isLoading,
-    error,
+    isLoading: isLoadingData,
+    error: null,
   };
 }

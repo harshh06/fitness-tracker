@@ -8,41 +8,38 @@ from app.models.schemas import (
 
 router = APIRouter(prefix="/exercises")
 
+@router.get("")
 @router.get("/search")
-async def search_exercises(
+async def list_exercises(
     q: str = "", 
-    muscle_group: str = "", 
-    equipment: str = "", 
     user_id: str = Depends(get_current_user), 
     conn = Depends(get_db)
 ):
     query = """
-        SELECT DISTINCT el.* 
+        SELECT el.*, COALESCE(json_agg(em.muscle_group) FILTER (WHERE em.muscle_group IS NOT NULL), '[]') as muscles
         FROM exercise_library el
         LEFT JOIN exercise_muscles em ON el.id = em.exercise_id
         WHERE (el.created_by = $1 OR el.is_system = true)
+        GROUP BY el.id
+        ORDER BY el.name ASC
     """
-
-    query_params = [user_id]
-    param_index = 2
-
-    if muscle_group:
-        query += f" AND em.muscle_group = ${param_index}"
-        param_index += 1
-        query_params.append(muscle_group)
-
-    if equipment:
-        query += f" AND el.equipment = ${param_index}"
-        param_index += 1
-        query_params.append(equipment)
+    res = await conn.fetch(query, user_id)
+    exercises = []
+    for row in res:
+        d = dict(row)
+        if isinstance(d["muscles"], str):
+            import json
+            d["muscles"] = json.loads(d["muscles"])
+        exercises.append(d)
 
     if q:
-        query += f" AND to_tsvector('english', el.name) @@ plainto_tsquery('english', ${param_index})"
-        param_index += 1
-        query_params.append(q)
+        q_lower = q.lower()
+        exercises = [
+            e for e in exercises 
+            if q_lower in e["name"].lower() or (e["category"] and q_lower in e["category"].lower())
+        ]
 
-    res = await conn.fetch(query, *query_params)
-    return [dict(row) for row in res]
+    return exercises
 
 
 @router.post("")

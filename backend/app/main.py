@@ -11,7 +11,10 @@ import asyncpg
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    pool = await asyncpg.create_pool(dsn = settings.database_url)
+    pool = await asyncpg.create_pool(
+        dsn=settings.database_url,
+        statement_cache_size=0,
+    )
     dependencies.pool = pool
     yield
     await dependencies.pool.close()

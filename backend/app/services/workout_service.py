@@ -224,3 +224,52 @@ async def delete_set(conn, set_id: str):
     )
     if result == "DELETE 0":
         raise HTTPException(status_code=404, detail="Set not found")
+
+
+async def create_workout_bulk(conn, user_id: str, data: dict):
+    """Save an entire workout with exercises and sets in a single transaction."""
+    async with conn.transaction():
+        # 1. Insert Workout
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO workouts (user_id, title, workout_type, completed_at)
+                   VALUES ($1, $2, $3, now()) RETURNING *""",
+                user_id, data.get("title"), data.get("workout_type")
+            )
+        except asyncpg.exceptions.CheckViolationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid workout value: {e}")
+        
+        workout_id = row["id"]
+        
+        # 2. Insert Exercises & Sets
+        for ex in data.get("exercises", []):
+            try:
+                ex_row = await conn.fetchrow(
+                    """INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes, rest_seconds)
+                       VALUES ($1, $2, $3, $4, $5) RETURNING *""",
+                    workout_id, ex["exercise_id"], ex["sort_order"], ex.get("notes"), ex.get("rest_seconds", 90)
+                )
+            except asyncpg.exceptions.ForeignKeyViolationError:
+                raise HTTPException(status_code=400, detail="Exercise not found in library")
+            except asyncpg.exceptions.CheckViolationError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid workout exercise value: {e}")
+            
+            we_id = ex_row["id"]
+            
+            for s in ex.get("sets", []):
+                try:
+                    await conn.execute(
+                        """INSERT INTO exercise_sets (
+                               workout_exercise_id, set_number, set_type, weight_lbs, 
+                               reps, duration_seconds, distance_meters, is_completed, rpe
+                           )
+                           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
+                        we_id, s["set_number"], s.get("set_type", "working"), s.get("weight_lbs"),
+                        s.get("reps"), s.get("duration_seconds"), s.get("distance_meters"),
+                        s.get("is_completed", False), s.get("rpe")
+                    )
+                except asyncpg.exceptions.CheckViolationError as e:
+                    raise HTTPException(status_code=400, detail=f"Invalid set value: {e}")
+        
+        return await get_workout_with_details(conn, str(workout_id), user_id)
+

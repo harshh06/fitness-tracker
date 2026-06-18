@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
 import { useWorkouts, type WorkoutSummary } from "@/lib/hooks/useWorkouts";
 import { useAuth } from "@/lib/auth-context";
+import { lbsToKg } from "@/lib/units";
 
 function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -86,6 +87,11 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { summary, isLoading: analyticsLoading } = useAnalytics(1);
   const { workouts, isLoading: workoutsLoading } = useWorkouts(5);
+  const unitPreference = user?.unit_preference || "lbs";
+
+  const volumeValue = summary
+    ? (unitPreference === "kg" ? lbsToKg(summary.total_volume_lbs) : summary.total_volume_lbs)
+    : 0;
 
   return (
     <main className="px-container-margin py-stack-space-lg flex flex-col gap-stack-space-lg pt-20 pb-32">
@@ -133,8 +139,8 @@ export default function DashboardPage() {
                 <span className="font-label-sm uppercase">Volume</span>
               </div>
               <span className="font-headline-md text-on-surface">
-                {formatVolume(summary.total_volume_lbs)}{" "}
-                <span className="font-body-md text-on-surface-variant">lbs</span>
+                {formatVolume(volumeValue)}{" "}
+                <span className="font-body-md text-on-surface-variant">{unitPreference}</span>
               </span>
             </div>
             <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">

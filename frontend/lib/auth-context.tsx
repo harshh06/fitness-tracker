@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
@@ -21,21 +21,58 @@ export interface Profile {
   email: string;
   date_of_birth?: string;
   gender?: string;
-  weight_lbs?: number;
-  height_inches?: number;
+  weight_kg?: number;
+  height_cm?: number;
+  unit_preference: string;
   fitness_level?: string;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
 }
 
+export interface ExerciseSearchResult {
+  id: string;
+  name: string;
+  category: string;
+  equipment: string;
+  difficulty: string;
+  instructions: string | null;
+  is_compound: boolean;
+  is_system: boolean;
+  created_by: string | null;
+  created_at: string;
+  muscles: string[];
+}
+
+export interface WorkoutSummary {
+  id: string;
+  user_id: string;
+  started_at: string;
+  completed_at: string | null;
+  title: string | null;
+  workout_type: string;
+  notes: string | null;
+  rating: number | null;
+  energy_level: number | null;
+  pain_notes: string | null;
+  duration_mins: number | null;
+  is_deleted: boolean;
+  created_at: string;
+  exercise_count?: number;
+}
+
 interface AuthContextType {
   user: Profile | null;
   token: string | null;
   isLoading: boolean;
+  exercises: ExerciseSearchResult[];
+  workouts: WorkoutSummary[];
+  isLoadingData: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  refetchUserData: () => Promise<void>;
+  updateUser: (user: Profile) => void;
 }
 
 // ── Context ─────────────────────────────────────────────────
@@ -51,6 +88,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { showToast } = useToast();
 
+  const [exercises, setExercises] = useState<ExerciseSearchResult[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  const refetchUserData = useCallback(async () => {
+    if (!isAuthenticated()) return;
+    try {
+      setIsLoadingData(true);
+      const [exercisesData, workoutsData] = await Promise.all([
+        api.get<ExerciseSearchResult[]>("/exercises"),
+        api.get<WorkoutSummary[]>("/workouts", { params: { limit: 100 } })
+      ]);
+      setExercises(exercisesData);
+      setWorkouts(workoutsData);
+    } catch (err) {
+      console.error("Failed to fetch user exercises/workouts:", err);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, []);
+
+  // Fetch exercises and workouts as soon as the user object is set
+  useEffect(() => {
+    if (!user) {
+      setExercises([]);
+      setWorkouts([]);
+      return;
+    }
+    refetchUserData();
+  }, [user, refetchUserData]);
+
   // Load initial session on mount (guarantees hydration-safety for SSR)
   useEffect(() => {
     async function loadSession() {
@@ -60,8 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setToken(accessToken);
 
           // Fetch the live profile from the backend
-          const profile = await api.get<Profile>("/profile/");
-          setUser(profile);
+          const data = await api.get<{ profile: Profile }>("/profile/");
+          setUser(data.profile);
         }
       } catch (err) {
         console.error("Failed to load session:", err);
@@ -100,8 +168,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.access_token);
 
       // Immediately fetch user profile
-      const profile = await api.get<Profile>("/profile/");
-      setUser(profile);
+      const profileData = await api.get<{ profile: Profile }>("/profile/");
+      setUser(profileData.profile);
 
       showToast("Logged in successfully!", "success");
       router.push("/dashboard");
@@ -128,8 +196,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.access_token);
 
       // Create/Update profile with the user's name
-      const profile = await api.put<Profile>("/profile/", { display_name: name });
-      setUser(profile);
+      const putResponse = await api.put<any>("/profile/", { display_name: name });
+      const { health_conditions: _, ...profileFields } = putResponse;
+      setUser(profileFields as Profile);
 
       showToast("Account created successfully!", "success");
       router.push("/dashboard");
@@ -152,15 +221,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
+  const updateUser = useCallback((updatedProfile: Profile) => {
+    setUser(updatedProfile);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         isLoading,
+        exercises,
+        workouts,
+        isLoadingData,
         login,
         signup,
         logout,
+        refetchUserData,
+        updateUser,
       }}
     >
       {children}

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useWorkouts, useWorkout, type WorkoutSummary } from "@/lib/hooks/useWorkouts";
+import { useAuth } from "@/lib/auth-context";
+import { formatWeight } from "@/lib/units";
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -37,6 +39,8 @@ function WorkoutCard({
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { workout: detail, isLoading } = useWorkout(isExpanded ? workout.id : null);
+  const { user } = useAuth();
+  const unitPreference = user?.unit_preference || "lbs";
 
   return (
     <article className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 overflow-hidden">
@@ -112,7 +116,7 @@ function WorkoutCard({
                         <div key={set.id} className="flex justify-between text-sm py-0.5">
                           <span className="font-body-md text-on-surface-variant">Set {set.set_number}</span>
                           <span className="font-body-md text-on-surface font-medium">
-                            {set.weight_lbs} lbs × {set.reps}
+                            {formatWeight(set.weight_lbs || 0, unitPreference)} {unitPreference} × {set.reps}
                           </span>
                         </div>
                       ))}
