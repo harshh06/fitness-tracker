@@ -332,7 +332,7 @@ Most complex router. Build a service layer in `workout_service.py`.
 
 ### 3.1 — Set Up API Client
 
-- [ ] Create `frontend/lib/api.ts`:
+- [x] Create `frontend/lib/api.ts`:
   - Wraps `fetch` with base URL (`http://localhost:8000` from env)
   - Attaches `Authorization: Bearer <token>` from stored session
   - Handles 401 → redirect to login
@@ -340,7 +340,7 @@ Most complex router. Build a service layer in `workout_service.py`.
 
 ### 3.2 — Build Auth State Management
 
-- [ ] Create `frontend/lib/auth-context.tsx`:
+- [x] Create `frontend/lib/auth-context.tsx`:
   - React context providing `user`, `token`, `login()`, `signup()`, `logout()`
   - Store JWT in `localStorage` (or Capacitor-safe storage later)
   - On app load: check for stored token, validate it, set user state
@@ -348,16 +348,16 @@ Most complex router. Build a service layer in `workout_service.py`.
 
 ### 3.3 — Build Auth Pages
 
-- [ ] Create `/login` page — email + password, big touch targets for parents
-- [ ] Create `/signup` page — email, password, display name
-- [ ] Add route protection: layout-level check → redirect to `/login` if no token
-- [ ] Test: sign up → auto-redirect to dashboard
+- [x] Create `/login` page — email + password, big touch targets for parents
+- [x] Create `/signup` page — email, password, display name
+- [x] Add route protection: layout-level check → redirect to `/login` if no token
+- [x] Test: sign up → auto-redirect to dashboard
 
 ### 3.4 — Set Up Dexie.js for Offline-First
 
-- [ ] `npm install dexie` in `frontend/`
-- [ ] Create `frontend/lib/db.ts` — Dexie schema mirroring your API responses
-- [ ] Pattern: **write to IndexedDB first → sync to backend in background**
+- [x] `npm install dexie` in `frontend/`
+- [x] Create `frontend/lib/db.ts` — Dexie schema mirroring your API responses
+- [x] Pattern: **write to IndexedDB first → sync to backend in background**
 
 ### 3.5 — Build Data Hooks
 

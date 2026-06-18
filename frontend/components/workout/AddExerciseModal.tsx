@@ -3,36 +3,18 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useExerciseSearch, type ExerciseSearchResult } from "@/lib/hooks/useExerciseSearch";
 
 interface AddExerciseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (exercise: string) => void;
+  onAdd: (exercise: ExerciseSearchResult) => void;
 }
 
-const EXERCISES = [
-  "Bench Press",
-  "Barbell Squat",
-  "Deadlift",
-  "Overhead Press",
-  "Pull-ups",
-  "Barbell Rows",
-  "Leg Press",
-  "Dumbbell Curls",
-  "Tricep Extensions",
-  "Lateral Raises",
-  "Front Squat",
-  "Lunges"
-];
-
 export function AddExerciseModal({ isOpen, onClose, onAdd }: AddExerciseModalProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const { query, setQuery, results, isLoading } = useExerciseSearch(300);
 
   if (!isOpen) return null;
-
-  const filteredExercises = EXERCISES.filter(ex => 
-    ex.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center">
@@ -71,8 +53,8 @@ export function AddExerciseModal({ isOpen, onClose, onAdd }: AddExerciseModalPro
             <input 
               type="text" 
               placeholder="Search exercises..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-surface-container rounded-xl border-none text-on-surface placeholder:text-outline-variant focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
@@ -80,23 +62,38 @@ export function AddExerciseModal({ isOpen, onClose, onAdd }: AddExerciseModalPro
 
         {/* Scrollable List */}
         <div className="flex-1 overflow-y-auto px-container-margin py-stack-space-lg space-y-2">
-          {filteredExercises.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              <span className="font-body-md text-on-surface-variant">Searching...</span>
+            </div>
+          ) : !query ? (
             <div className="text-center text-on-surface-variant py-8">
-              No exercises found matching "{searchQuery}"
+              <span className="material-symbols-outlined text-4xl text-outline mb-2 block">search</span>
+              <p className="font-body-md">Type to search the exercise library</p>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="text-center text-on-surface-variant py-8">
+              No exercises found matching &quot;{query}&quot;
             </div>
           ) : (
-            filteredExercises.map((exercise) => (
+            results.map((exercise) => (
               <Button 
-                key={exercise}
+                key={exercise.id}
                 variant="ghost"
                 onClick={() => {
                   onAdd(exercise);
-                  setSearchQuery("");
+                  setQuery("");
                   onClose();
                 }}
                 className="w-full flex items-center justify-between min-h-[56px] px-4 rounded-xl bg-surface hover:bg-surface-container-high active:bg-surface-container-highest transition-all border border-transparent h-auto py-3 text-left"
               >
-                <span className="font-label-lg text-on-surface">{exercise}</span>
+                <div className="flex flex-col">
+                  <span className="font-label-lg text-on-surface">{exercise.name}</span>
+                  <span className="font-label-sm text-on-surface-variant capitalize">
+                    {exercise.category} • {exercise.equipment}
+                  </span>
+                </div>
                 <span className="material-symbols-outlined text-outline">add</span>
               </Button>
             ))

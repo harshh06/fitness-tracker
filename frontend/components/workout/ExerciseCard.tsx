@@ -39,10 +39,17 @@ function Stepper({ label, value, step = 1, min = 0, onChange }: StepperProps) {
   );
 }
 
-export function ExerciseCard({ exerciseName, initialWeight = 45, initialReps = 10 }: { exerciseName: string, initialWeight?: number, initialReps?: number }) {
-  const [weight, setWeight] = useState(initialWeight);
-  const [reps, setReps] = useState(initialReps);
-
+export function ExerciseCard({
+  exerciseName,
+  weight,
+  reps,
+  onChange,
+}: {
+  exerciseName: string;
+  weight: number;
+  reps: number;
+  onChange: (weight: number, reps: number) => void;
+}) {
   return (
     <article className="bg-surface-container-lowest rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] p-element-gap border border-surface-variant/50">
       <div className="flex justify-between items-center mb-element-gap">
@@ -64,8 +71,8 @@ export function ExerciseCard({ exerciseName, initialWeight = 45, initialReps = 1
           </div>
           
           <div className="flex flex-col gap-unit">
-            <Stepper label="Weight (lbs)" value={weight} step={5} min={0} onChange={setWeight} />
-            <Stepper label="Reps" value={reps} step={1} min={0} onChange={setReps} />
+            <Stepper label="Weight (lbs)" value={weight} step={5} min={0} onChange={(val) => onChange(val, reps)} />
+            <Stepper label="Reps" value={reps} step={1} min={0} onChange={(val) => onChange(weight, val)} />
           </div>
         </div>
       </div>

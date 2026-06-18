@@ -6,6 +6,7 @@ from app import dependencies
 from app.config import settings
 from app.routers import auth, profile, exercise_library, workouts, analytics
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import asyncpg
 
 @asynccontextmanager
@@ -16,6 +17,14 @@ async def lifespan(app: FastAPI):
     await dependencies.pool.close()
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router, tags=["Auth"])
 app.include_router(profile.router, tags=["Profile"])
