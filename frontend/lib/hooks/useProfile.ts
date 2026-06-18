@@ -10,8 +10,9 @@ export interface ProfileData {
   email: string;
   date_of_birth: string | null;
   gender: string | null;
-  weight_lbs: number | null;
-  height_inches: number | null;
+  weight_kg: number | null;
+  height_cm: number | null;
+  unit_preference: string;
   fitness_level: string | null;
   avatar_url: string | null;
   created_at: string;
@@ -39,8 +40,9 @@ interface ProfileUpdateFields {
   display_name?: string;
   date_of_birth?: string;
   gender?: string;
-  weight_lbs?: number;
-  height_inches?: number;
+  weight_kg?: number;
+  height_cm?: number;
+  unit_preference?: string;
   fitness_level?: string;
 }
 

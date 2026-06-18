@@ -12,7 +12,7 @@ interface AddExerciseModalProps {
 }
 
 export function AddExerciseModal({ isOpen, onClose, onAdd }: AddExerciseModalProps) {
-  const { query, setQuery, results, isLoading } = useExerciseSearch(300);
+  const { query, setQuery, results, isLoading } = useExerciseSearch();
 
   if (!isOpen) return null;
 

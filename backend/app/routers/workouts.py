@@ -19,8 +19,12 @@ async def create_workout(
     user_id: str = Depends(get_current_user),
     conn=Depends(get_db),
 ):
-    """Start a blank workout session."""
-    return await ws.create_workout(conn, user_id, data.title, data.workout_type)
+    """Start a blank workout session or save a completed session in one request."""
+    workout_dict = data.model_dump(exclude_unset=True)
+    if "exercises" in workout_dict and workout_dict["exercises"]:
+        return await ws.create_workout_bulk(conn, user_id, workout_dict)
+    else:
+        return await ws.create_workout(conn, user_id, data.title, data.workout_type)
 
 
 @router.get("")

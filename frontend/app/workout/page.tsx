@@ -9,16 +9,28 @@ import { FullCalendarModal } from "@/components/workout/FullCalendarModal";
 import { AddExerciseModal } from "@/components/workout/AddExerciseModal";
 import { api } from "@/lib/api";
 import type { ExerciseSearchResult } from "@/lib/hooks/useExerciseSearch";
+import { useAuth } from "@/lib/auth-context";
+import { kgToLbs } from "@/lib/units";
+
+interface LocalSet {
+  set_number: number;
+  weight: number;
+  reps: number;
+  duration_seconds?: number;
+}
 
 interface LocalExercise {
   exercise_id: string;
   name: string;
-  weight: number;
-  reps: number;
+  category: string;
+  sets: LocalSet[];
 }
 
 export default function WorkoutPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const unitPreference = user?.unit_preference || "lbs";
+
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
@@ -34,16 +46,63 @@ export default function WorkoutPage() {
       {
         exercise_id: exercise.id,
         name: exercise.name,
-        weight: 45,
-        reps: 10,
+        category: exercise.category,
+        sets: [
+          {
+            set_number: 1,
+            weight: exercise.category === "cardio" ? 0 : (unitPreference === "kg" ? 20 : 45),
+            reps: exercise.category === "cardio" ? 0 : 10,
+            duration_seconds: exercise.category === "cardio" ? 60 : undefined,
+          },
+        ],
       },
     ]);
   };
 
-  const handleUpdateExercise = (index: number, weight: number, reps: number) => {
+  const handleUpdateSet = (exerciseIndex: number, setIndex: number, fields: Partial<LocalSet>) => {
     setExercises((prev) =>
-      prev.map((ex, idx) => (idx === index ? { ...ex, weight, reps } : ex))
+      prev.map((ex, exIdx) => {
+        if (exIdx !== exerciseIndex) return ex;
+        const newSets = ex.sets.map((set, sIdx) =>
+          sIdx === setIndex ? { ...set, ...fields } : set
+        );
+        return { ...ex, sets: newSets };
+      })
     );
+  };
+
+  const handleAddSet = (exerciseIndex: number) => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== exerciseIndex) return ex;
+        const lastSet = ex.sets[ex.sets.length - 1];
+        const newSet: LocalSet = {
+          set_number: ex.sets.length + 1,
+          weight: lastSet ? lastSet.weight : (ex.category === "cardio" ? 0 : (unitPreference === "kg" ? 20 : 45)),
+          reps: lastSet ? lastSet.reps : (ex.category === "cardio" ? 0 : 10),
+          duration_seconds: lastSet ? lastSet.duration_seconds : (ex.category === "cardio" ? 60 : undefined),
+        };
+        return { ...ex, sets: [...ex.sets, newSet] };
+      })
+    );
+  };
+
+  const handleRemoveSet = (exerciseIndex: number, setIndex: number) => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== exerciseIndex) return ex;
+        const filteredSets = ex.sets.filter((_, sIdx) => sIdx !== setIndex);
+        const renumberedSets = filteredSets.map((set, sIdx) => ({
+          ...set,
+          set_number: sIdx + 1,
+        }));
+        return { ...ex, sets: renumberedSets };
+      })
+    );
+  };
+
+  const handleRemoveExercise = (exerciseIndex: number) => {
+    setExercises((prev) => prev.filter((_, idx) => idx !== exerciseIndex));
   };
 
   const handleSaveWorkout = async () => {
@@ -51,38 +110,26 @@ export default function WorkoutPage() {
 
     setIsSaving(true);
     try {
-      // 1. Create the workout session
-      const workout = await api.post<{ id: string }>("/workouts", {
+      const payload = {
         title: `Workout — ${selectedDate}`,
         workout_type: "strength",
-      });
-
-      // 2. Add each exercise to the workout
-      for (let i = 0; i < exercises.length; i++) {
-        const ex = exercises[i];
-        const workoutExercise = await api.post<{ id: string }>(
-          `/workouts/${workout.id}/exercises`,
-          {
-            exercise_id: ex.exercise_id,
-            sort_order: i + 1,
-          }
-        );
-
-        // 3. Add a default working set for each exercise
-        await api.post(
-          `/workouts/${workout.id}/exercises/${workoutExercise.id}/sets`,
-          {
-            set_number: 1,
+        exercises: exercises.map((ex, exIdx) => ({
+          exercise_id: ex.exercise_id,
+          sort_order: exIdx + 1,
+          sets: ex.sets.map((s) => ({
+            set_number: s.set_number,
             set_type: "working",
-            weight_lbs: ex.weight,
-            reps: ex.reps,
+            weight_lbs: ex.category === "cardio"
+              ? null
+              : (unitPreference === "kg" ? kgToLbs(s.weight) : s.weight),
+            reps: ex.category === "cardio" ? null : s.reps,
+            duration_seconds: ex.category === "cardio" ? s.duration_seconds : null,
             is_completed: true,
-          }
-        );
-      }
+          })),
+        })),
+      };
 
-      // 4. Mark the workout as completed
-      await api.put(`/workouts/${workout.id}/complete`);
+      await api.post("/workouts", payload);
 
       router.push("/dashboard");
     } catch (err) {
@@ -121,13 +168,18 @@ export default function WorkoutPage() {
             <ExerciseCard
               key={idx}
               exerciseName={ex.name}
-              weight={ex.weight}
-              reps={ex.reps}
-              onChange={(weight, reps) => handleUpdateExercise(idx, weight, reps)}
+              category={ex.category}
+              sets={ex.sets}
+              onUpdateSet={(setIdx, fields) => handleUpdateSet(idx, setIdx, fields)}
+              onAddSet={() => handleAddSet(idx)}
+              onRemoveSet={(setIdx) => handleRemoveSet(idx, setIdx)}
+              onRemoveExercise={() => handleRemoveExercise(idx)}
+              weightUnit={unitPreference}
             />
           ))
         )}
       </main>
+
 
       <footer className="fixed bottom-0 left-0 w-full bg-surface/95 backdrop-blur-md border-t border-surface-variant px-container-margin pt-4 pb-[calc(20px+env(safe-area-inset-bottom))] flex flex-col gap-unit z-50">
         <button 

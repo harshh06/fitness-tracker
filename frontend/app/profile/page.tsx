@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { lbsToKg, kgToLbs, cmToFtIn, ftInToCm } from "@/lib/units";
 
 export default function ProfilePage() {
-  const { logout } = useAuth();
+  const { logout, refetchUserData, updateUser } = useAuth();
   const {
     profile,
     healthConditions,
@@ -20,6 +21,8 @@ export default function ProfilePage() {
   const [weight, setWeight] = useState("");
   const [heightFt, setHeightFt] = useState("");
   const [heightIn, setHeightIn] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [unitPreference, setUnitPreference] = useState("lbs");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
@@ -29,25 +32,100 @@ export default function ProfilePage() {
   const [newSeverity, setNewSeverity] = useState("mild");
   const [isAddingCondition, setIsAddingCondition] = useState(false);
 
-  // Sync local state once profile is available
-  const profileLoaded = profile && !weight && !heightFt;
-  if (profileLoaded) {
-    if (profile.weight_lbs) setWeight(String(profile.weight_lbs));
-    if (profile.height_inches) {
-      setHeightFt(String(Math.floor(profile.height_inches / 12)));
-      setHeightIn(String(profile.height_inches % 12));
+  // Sync state once profile is loaded
+  useEffect(() => {
+    if (profile) {
+      const pref = profile.unit_preference || "lbs";
+      setUnitPreference(pref);
+      
+      if (pref === "kg") {
+        if (profile.weight_kg) setWeight(String(profile.weight_kg));
+        if (profile.height_cm) setHeightCm(String(profile.height_cm));
+      } else {
+        if (profile.weight_kg) {
+          // Convert stored kg to display lbs
+          setWeight(String(Math.round(kgToLbs(profile.weight_kg) * 10) / 10));
+        }
+        if (profile.height_cm) {
+          // Convert stored cm to display feet and inches
+          const { ft, in: inch } = cmToFtIn(profile.height_cm);
+          setHeightFt(String(ft));
+          setHeightIn(String(inch));
+        }
+      }
     }
-  }
+  }, [profile]);
+
+  const handleUnitChange = async (newUnit: "lbs" | "kg") => {
+    if (newUnit === unitPreference) return;
+    
+    setUnitPreference(newUnit);
+    
+    if (newUnit === "kg") {
+      // Convert current display weight from lbs to kg
+      if (weight) {
+        setWeight(String(Math.round(lbsToKg(parseFloat(weight)) * 10) / 10));
+      }
+      // Convert height from ft/in to cm
+      const ft = parseFloat(heightFt || "0");
+      const inch = parseFloat(heightIn || "0");
+      const cmVal = ftInToCm(ft, inch);
+      if (cmVal > 0) {
+        setHeightCm(String(Math.round(cmVal)));
+      }
+    } else {
+      // Convert current display weight from kg to lbs
+      if (weight) {
+        setWeight(String(Math.round(kgToLbs(parseFloat(weight)) * 10) / 10));
+      }
+      // Convert height from cm to ft/in
+      const cmVal = parseFloat(heightCm || "0");
+      if (cmVal > 0) {
+        const { ft, in: inch } = cmToFtIn(cmVal);
+        setHeightFt(String(ft));
+        setHeightIn(String(inch));
+      }
+    }
+
+    // Auto-save the unit preference immediately
+    try {
+      const updatedProfile = await updateProfile({ unit_preference: newUnit });
+      updateUser(updatedProfile as any);
+    } catch {
+      // Silently fail — user can still save via Save Vitals button
+    }
+  };
 
   const handleSaveVitals = async () => {
     setIsSaving(true);
     setSaveMsg(null);
     try {
-      const heightInches = parseInt(heightFt || "0") * 12 + parseInt(heightIn || "0");
-      await updateProfile({
-        weight_lbs: parseFloat(weight) || undefined,
-        height_inches: heightInches || undefined,
+      let weight_kg: number | undefined;
+      let height_cm: number | undefined;
+
+      if (unitPreference === "kg") {
+        weight_kg = parseFloat(weight) || undefined;
+        height_cm = parseFloat(heightCm) || undefined;
+      } else {
+        const lbsVal = parseFloat(weight);
+        if (lbsVal) {
+          weight_kg = lbsToKg(lbsVal);
+        }
+        
+        const ft = parseInt(heightFt || "0");
+        const inch = parseInt(heightIn || "0");
+        if (ft || inch) {
+          height_cm = ftInToCm(ft, inch);
+        }
+      }
+
+      const updatedProfile = await updateProfile({
+        weight_kg,
+        height_cm,
+        unit_preference: unitPreference,
       });
+      updateUser(updatedProfile as any);
+      await refetchUserData();
       setSaveMsg("Saved!");
       setTimeout(() => setSaveMsg(null), 2000);
     } catch {
@@ -120,11 +198,44 @@ export default function ProfilePage() {
             </span>
           )}
         </div>
+        <div className="grid grid-cols-1 gap-6">
+          {/* Unit Preference Selector */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-sm text-on-surface-variant uppercase tracking-wider">
+              Weight Unit Preference
+            </label>
+            <div className="flex bg-surface-container-low rounded-lg p-1 h-[56px] border border-outline-variant/10">
+              <button
+                type="button"
+                onClick={() => handleUnitChange("lbs")}
+                className={`flex-1 rounded-md font-label-lg transition-colors cursor-pointer ${
+                  unitPreference === "lbs"
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface hover:bg-surface-container-high"
+                }`}
+              >
+                lbs (Imperial)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUnitChange("kg")}
+                className={`flex-1 rounded-md font-label-lg transition-colors cursor-pointer ${
+                  unitPreference === "kg"
+                    ? "bg-primary text-on-primary shadow-sm"
+                    : "text-on-surface hover:bg-surface-container-high"
+                }`}
+              >
+                kg (Metric)
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-element-gap">
           {/* Weight */}
           <div className="flex flex-col gap-2">
             <label className="font-label-sm text-on-surface-variant uppercase tracking-wider" htmlFor="weight">
-              Weight
+              Weight ({unitPreference})
             </label>
             <div className="relative">
               <input
@@ -135,7 +246,7 @@ export default function ProfilePage() {
                 onChange={(e) => setWeight(e.target.value)}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 font-label-sm text-on-surface-variant">
-                lbs
+                {unitPreference}
               </span>
             </div>
           </div>
@@ -145,24 +256,39 @@ export default function ProfilePage() {
             <label className="font-label-sm text-on-surface-variant uppercase tracking-wider">
               Height
             </label>
-            <div className="relative flex items-center bg-surface-container-low rounded-lg focus-within:ring-2 focus-within:ring-primary focus-within:bg-surface-container-lowest transition-colors h-[56px]">
-              <input
-                className="w-1/2 bg-transparent border-none text-right font-body-lg text-on-surface focus:ring-0"
-                id="height-ft"
-                type="number"
-                value={heightFt}
-                onChange={(e) => setHeightFt(e.target.value)}
-              />
-              <span className="font-label-sm text-on-surface-variant px-1">ft</span>
-              <input
-                className="w-1/2 bg-transparent border-none text-right font-body-lg text-on-surface focus:ring-0"
-                id="height-in"
-                type="number"
-                value={heightIn}
-                onChange={(e) => setHeightIn(e.target.value)}
-              />
-              <span className="font-label-sm text-on-surface-variant pr-4 pl-1">in</span>
-            </div>
+            {unitPreference === "kg" ? (
+              <div className="relative">
+                <input
+                  className="w-full bg-surface-container-low border-none rounded-lg h-[56px] px-4 font-body-lg text-on-surface focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest transition-colors"
+                  type="number"
+                  placeholder="Height in cm"
+                  value={heightCm}
+                  onChange={(e) => setHeightCm(e.target.value)}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-label-sm text-on-surface-variant">
+                  cm
+                </span>
+              </div>
+            ) : (
+              <div className="relative flex items-center bg-surface-container-low rounded-lg focus-within:ring-2 focus-within:ring-primary focus-within:bg-surface-container-lowest transition-colors h-[56px]">
+                <input
+                  className="w-1/2 bg-transparent border-none text-right font-body-lg text-on-surface focus:ring-0"
+                  id="height-ft"
+                  type="number"
+                  value={heightFt}
+                  onChange={(e) => setHeightFt(e.target.value)}
+                />
+                <span className="font-label-sm text-on-surface-variant px-1">ft</span>
+                <input
+                  className="w-1/2 bg-transparent border-none text-right font-body-lg text-on-surface focus:ring-0"
+                  id="height-in"
+                  type="number"
+                  value={heightIn}
+                  onChange={(e) => setHeightIn(e.target.value)}
+                />
+                <span className="font-label-sm text-on-surface-variant pr-4 pl-1">in</span>
+              </div>
+            )}
           </div>
         </div>
 

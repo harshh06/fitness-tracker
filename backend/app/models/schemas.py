@@ -41,6 +41,7 @@ class ProfileUpdate(BaseModel):
     weight_kg : Optional[int] = None    
     fitness_level : Optional[str] = None    
     avatar_url : Optional[str] = None    
+    unit_preference: Optional[str] = "lbs"
 
 class ProfileResponse(ProfileUpdate):
     id: UUID
@@ -102,10 +103,6 @@ class ExerciseResponse(ExerciseBase):
 
 # --- Workout Schemas ---
 
-class WorkoutCreate(BaseModel):
-    title: Optional[str] = None
-    workout_type: Optional[str] = None
-
 class WorkoutUpdate(BaseModel):
     title: Optional[str] = None
     notes: Optional[str] = None
@@ -113,12 +110,6 @@ class WorkoutUpdate(BaseModel):
     energy_level: Optional[int] = None
     pain_notes: Optional[str] = None
     duration_mins: Optional[int] = None
-
-class WorkoutExerciseCreate(BaseModel):
-    exercise_id: UUID
-    sort_order: int
-    notes: Optional[str] = None
-    rest_seconds: Optional[int] = 90
 
 class SetCreate(BaseModel):
     set_number: int
@@ -129,6 +120,18 @@ class SetCreate(BaseModel):
     distance_meters: Optional[float] = None
     is_completed: Optional[bool] = False
     rpe: Optional[int] = None
+
+class WorkoutExerciseCreate(BaseModel):
+    exercise_id: UUID
+    sort_order: int
+    notes: Optional[str] = None
+    rest_seconds: Optional[int] = 90
+    sets: Optional[List[SetCreate]] = []
+
+class WorkoutCreate(BaseModel):
+    title: Optional[str] = None
+    workout_type: Optional[str] = None
+    exercises: Optional[List[WorkoutExerciseCreate]] = []
 
 class SetUpdate(BaseModel):
     set_number: Optional[int] = None
