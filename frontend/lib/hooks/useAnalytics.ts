@@ -18,6 +18,7 @@ export interface AnalyticsSummary {
   total_workouts: number;
   total_volume_lbs: number;
   total_duration_mins: number;
+  estimated_calories_burned: number;
   workouts_per_week: WeeklyWorkout[];
   top_muscle_groups: MuscleGroupStat[];
 }

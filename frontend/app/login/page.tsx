@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -12,19 +13,73 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setIsSubmitting(true);
 
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err?.detail || "Invalid email or password. Please try again.");
+      setError(err?.message || "Invalid email or password. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError("Please enter your email address to receive a password reset link.");
+      return;
+    }
+    setError(null);
+    setSuccess(null);
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/reset-password",
+      });
+      if (error) throw error;
+      setSuccess("A password reset link has been sent to your email!");
+    } catch (err: any) {
+      setError(err?.message || "Failed to send reset email. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/dashboard",
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err?.message || "Google sign-in failed.");
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "apple",
+        options: {
+          redirectTo: window.location.origin + "/dashboard",
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err?.message || "Apple sign-in failed.");
     }
   };
 
@@ -67,6 +122,21 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Success Banner */}
+            {success && (
+              <div
+                className="flex items-start gap-3 rounded-xl bg-primary/10 p-4 border border-primary/20 animate-in fade-in duration-200"
+                role="status"
+              >
+                <span className="material-symbols-outlined text-primary text-xl shrink-0 mt-0.5">
+                  check_circle
+                </span>
+                <p className="text-sm font-semibold text-primary leading-relaxed">
+                  {success}
+                </p>
+              </div>
+            )}
+
             {/* Email Field */}
             <div className="flex flex-col gap-2">
               <label
@@ -93,12 +163,21 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="flex flex-col gap-2">
-              <label
-                htmlFor="password"
-                className="text-base font-bold text-on-surface-variant px-1"
-              >
-                Password
-              </label>
+              <div className="flex justify-between items-center px-1">
+                <label
+                  htmlFor="password"
+                  className="text-base font-bold text-on-surface-variant"
+                >
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="text-sm font-bold text-primary hover:underline focus-visible:outline-none"
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl pointer-events-none">
                   lock
@@ -142,6 +221,47 @@ export default function LoginPage() {
                 "Log In"
               )}
             </Button>
+
+            {/* Divider */}
+            <div className="relative flex items-center justify-center my-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-outline-variant/30"></div>
+              </div>
+              <span className="relative bg-surface px-4 text-xs font-bold text-outline uppercase tracking-wider">
+                Or continue with
+              </span>
+            </div>
+
+            {/* Social Logins */}
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleGoogleLogin}
+                className="w-full font-semibold border-outline-variant hover:bg-surface-container-high transition-colors py-3"
+              >
+                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.68 1.54 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.85 2.99c.9-2.7 3.42-4.51 6.76-4.51z"/>
+                  <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.36H12v4.51h6.46c-.29 1.48-1.14 2.73-2.4 3.58l3.76 2.91c2.2-2.03 3.67-5.01 3.67-8.64z"/>
+                  <path fill="#FBBC05" d="M5.24 14.55A7.12 7.12 0 0 1 4.8 12c0-.89.15-1.75.44-2.55L1.39 6.46A11.94 11.94 0 0 0 0 12c0 2.02.5 3.92 1.39 5.54l3.85-2.99z"/>
+                  <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.76-2.91c-1.11.75-2.53 1.19-4.2 1.19-3.34 0-6.14-2.18-7.14-5.14L1.01 16.2A11.96 11.96 0 0 0 12 23z"/>
+                </svg>
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleAppleLogin}
+                className="w-full font-semibold border-outline-variant hover:bg-surface-container-high transition-colors py-3"
+              >
+                <svg className="w-5 h-5 mr-2 fill-current" viewBox="0 0 24 24">
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.2.67-2.92 1.51-.62.73-1.16 1.87-1.01 2.98 1.1.09 2.22-.53 2.94-1.43z"/>
+                </svg>
+                Apple
+              </Button>
+            </div>
           </form>
 
           {/* Redirect to Signup */}

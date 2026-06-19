@@ -1,16 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  api,
-  setTokens,
-  clearTokens,
-  getAccessToken,
-  isAuthenticated,
-  onUnauthorized,
-} from "./api";
+import { api, onUnauthorized } from "./api";
 import { useToast } from "./toast-context";
+import { supabase } from "./supabaseClient";
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -70,7 +64,7 @@ interface AuthContextType {
   isLoadingData: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refetchUserData: () => Promise<void>;
   updateUser: (user: Profile) => void;
 }
@@ -88,12 +82,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { showToast } = useToast();
 
+  const userRef = useRef<Profile | null>(null);
+  const tokenRef = useRef<string | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
   const [exercises, setExercises] = useState<ExerciseSearchResult[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   const refetchUserData = useCallback(async () => {
-    if (!isAuthenticated()) return;
+    // If not authenticated (no token), skip fetching data
+    if (!supabase.auth.getSession()) return;
     try {
       setIsLoadingData(true);
       const [exercisesData, workoutsData] = await Promise.all([
@@ -119,39 +126,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refetchUserData();
   }, [user, refetchUserData]);
 
-  // Load initial session on mount (guarantees hydration-safety for SSR)
+  // Load initial session on mount and subscribe to changes
   useEffect(() => {
-    async function loadSession() {
-      try {
-        if (isAuthenticated()) {
-          const accessToken = getAccessToken();
-          setToken(accessToken);
+    let mounted = true;
 
-          // Fetch the live profile from the backend
-          const data = await api.get<{ profile: Profile }>("/profile/");
-          setUser(data.profile);
+    // Listen to changes (e.g. login, token refresh, sign out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      if (session) {
+        const isNewToken = session.access_token !== tokenRef.current;
+        const isNewUser = !userRef.current || session.user.id !== userRef.current.id;
+
+        setToken(session.access_token);
+
+        // Fetch profile only if:
+        // 1. We don't have the user profile loaded, OR
+        // 2. The user has switched (different sub ID)
+        if (isNewUser && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
+          try {
+            setIsLoading(true);
+            const data = await api.get<{ profile: Profile }>("/profile/");
+            if (mounted) {
+              setUser(data.profile);
+            }
+          } catch (err) {
+            console.error("Failed to fetch profile on auth change:", err);
+          } finally {
+            if (mounted) setIsLoading(false);
+          }
+        } else {
+          // Token refreshed or user profile already loaded, just clear loading
+          setIsLoading(false);
         }
-      } catch (err) {
-        console.error("Failed to load session:", err);
-        showToast("Session expired. Please log in again.", "error");
-        // If profile fetch fails, clear invalid tokens
-        clearTokens();
-        setToken(null);
+      } else {
         setUser(null);
-      } finally {
+        setToken(null);
         setIsLoading(false);
       }
-    }
-
-    loadSession();
+    });
 
     // Register global interceptor/listener for unauthorized requests (401)
     onUnauthorized(() => {
-      setUser(null);
-      setToken(null);
-      showToast("Session expired. Please log in again.", "error");
-      router.push("/login");
+      if (mounted) {
+        setUser(null);
+        setToken(null);
+        showToast("Session expired. Please log in again.", "error");
+        router.push("/login");
+      }
     });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [router, showToast]);
 
   // ── Auth Operations ────────────────────────────────────────
@@ -159,25 +186,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const data = await api.post<{
-        access_token: string;
-        refresh_token: string;
-      }>("/auth/login", { email, password }, { public: true });
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
-      setTokens(data.access_token, data.refresh_token);
-      setToken(data.access_token);
-
-      // Immediately fetch user profile
-      const profileData = await api.get<{ profile: Profile }>("/profile/");
-      setUser(profileData.profile);
+      if (data.session) {
+        setToken(data.session.access_token);
+      }
 
       showToast("Logged in successfully!", "success");
       router.push("/dashboard");
     } catch (err: any) {
-      clearTokens();
-      setToken(null);
       setUser(null);
-      showToast(err?.detail || "Invalid email or password. Please try again.", "error");
+      setToken(null);
+      showToast(err?.message || "Invalid email or password. Please try again.", "error");
       throw err;
     } finally {
       setIsLoading(false);
@@ -187,36 +208,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (email: string, password: string, name: string) => {
     setIsLoading(true);
     try {
-      const data = await api.post<{
-        access_token: string;
-        refresh_token: string;
-      }>("/auth/signup", { email, password }, { public: true });
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: name,
+          }
+        }
+      });
+      if (error) throw error;
 
-      setTokens(data.access_token, data.refresh_token);
-      setToken(data.access_token);
-
-      // Create/Update profile with the user's name
-      const putResponse = await api.put<any>("/profile/", { display_name: name });
-      const { health_conditions: _, ...profileFields } = putResponse;
-      setUser(profileFields as Profile);
-
-      showToast("Account created successfully!", "success");
-      router.push("/dashboard");
+      if (data.session) {
+        setToken(data.session.access_token);
+        showToast("Account created successfully!", "success");
+        router.push("/dashboard");
+      } else {
+        // If email confirmation is required, session might be null
+        showToast("Registration successful! Please check your email for confirmation.", "success");
+        router.push("/login");
+      }
     } catch (err: any) {
-      clearTokens();
-      setToken(null);
       setUser(null);
-      showToast(err?.detail || "Signup failed. Please try again.", "error");
+      setToken(null);
+      showToast(err?.message || "Signup failed. Please try again.", "error");
       throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    clearTokens();
-    setToken(null);
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
+    setToken(null);
     showToast("Logged out successfully.", "info");
     router.push("/login");
   };

@@ -4,7 +4,7 @@ from fastapi import Depends
 from contextlib import asynccontextmanager
 from app import dependencies
 from app.config import settings
-from app.routers import auth, profile, exercise_library, workouts, analytics
+from app.routers import profile, exercise_library, workouts, analytics
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncpg
@@ -29,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, tags=["Auth"])
 app.include_router(profile.router, tags=["Profile"])
 app.include_router(exercise_library.router, tags=["Exercises"])
 app.include_router(workouts.router, tags=["Workouts"])

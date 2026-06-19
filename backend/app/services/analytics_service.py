@@ -9,6 +9,7 @@ async def get_summary(conn, user_id: str, months: int = 1):
     """
     Summary stats for the last N months:
       - total_workouts, total_volume (weight × reps), total_duration_mins
+      - estimated_calories_burned (MET-based)
       - workouts_per_week breakdown
       - top muscle groups by set count
     """
@@ -43,6 +44,57 @@ async def get_summary(conn, user_id: str, months: int = 1):
         """,
         user_id, since,
     )
+
+    # ── Estimated calories burned (MET-based) ─────────────────
+    # MET values: cardio=7.0, strength=3.5, flexibility/yoga/rehab=2.5
+    # Formula: calories = MET × weight_kg × 3.5 / 200 × duration_minutes
+    user_weight_kg = await conn.fetchval(
+        "SELECT weight_kg FROM profiles WHERE user_id = $1",
+        user_id,
+    )
+    weight_kg = float(user_weight_kg) if user_weight_kg else 70.0  # fallback
+
+    calorie_rows = await conn.fetch(
+        """
+        SELECT
+            el.category,
+            COALESCE(SUM(es.duration_seconds), 0) AS total_duration_sec,
+            w.duration_mins AS workout_duration_mins
+        FROM exercise_sets es
+        JOIN workout_exercises we ON es.workout_exercise_id = we.id
+        JOIN workouts w           ON we.workout_id = w.id
+        JOIN exercise_library el  ON we.exercise_id = el.id
+        WHERE w.user_id = $1
+          AND w.is_deleted = false
+          AND w.started_at >= $2
+        GROUP BY el.category, w.duration_mins
+        """,
+        user_id, since,
+    )
+
+    # MET mapping by category
+    met_map = {
+        "cardio": 7.0,
+        "strength": 3.5,
+        "flexibility": 2.5,
+        "yoga": 2.5,
+        "rehab": 2.0,
+    }
+
+    estimated_calories = 0.0
+    for row in calorie_rows:
+        category = row["category"] or "strength"
+        met = met_map.get(category, 3.5)
+        # For cardio: use set-level duration_seconds if available
+        # For strength: use workout-level duration_mins as proxy
+        duration_sec = row["total_duration_sec"]
+        workout_mins = row["workout_duration_mins"] or 0
+        if duration_sec and duration_sec > 0:
+            duration_mins = duration_sec / 60.0
+        else:
+            duration_mins = float(workout_mins)
+        # MET formula: cal/min = MET × weight_kg × 3.5 / 200
+        estimated_calories += met * weight_kg * 3.5 / 200 * duration_mins
 
     # ── Workouts per week ─────────────────────────────────────
     weekly_rows = await conn.fetch(
@@ -86,6 +138,7 @@ async def get_summary(conn, user_id: str, months: int = 1):
         "total_workouts": stats["total_workouts"],
         "total_volume_lbs": float(volume),
         "total_duration_mins": stats["total_duration_mins"],
+        "estimated_calories_burned": round(estimated_calories),
         "workouts_per_week": [
             {"week": str(r["week"]), "count": r["count"]}
             for r in weekly_rows
