@@ -7,12 +7,6 @@ import { useWorkouts, type WorkoutSummary } from "@/lib/hooks/useWorkouts";
 import { useAuth } from "@/lib/auth-context";
 import { lbsToKg } from "@/lib/units";
 
-function formatDuration(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
 
 function formatVolume(lbs: number): string {
   if (lbs >= 1000) return `${(lbs / 1000).toFixed(1)}k`;
@@ -144,12 +138,13 @@ export default function DashboardPage() {
               </span>
             </div>
             <div className="bg-surface-container-lowest p-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-outline-variant/30 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-primary">
-                <span className="material-symbols-outlined text-[20px]">timer</span>
-                <span className="font-label-sm uppercase">Active Time</span>
+              <div className="flex items-center gap-2 text-tertiary">
+                <span className="material-symbols-outlined text-[20px]">bolt</span>
+                <span className="font-label-sm uppercase">Est. Calories</span>
               </div>
               <span className="font-headline-md text-on-surface">
-                {formatDuration(summary.total_duration_mins)}
+                {summary.estimated_calories_burned.toLocaleString()}{" "}
+                <span className="font-body-md text-on-surface-variant">kcal</span>
               </span>
             </div>
           </>
