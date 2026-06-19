@@ -110,9 +110,27 @@ export default function WorkoutPage() {
 
     setIsSaving(true);
     try {
+      // Determine workout type dynamically based on exercise categories
+      const categories = new Set(
+        exercises.map((ex) => {
+          const cat = ex.category?.toLowerCase();
+          if (cat === "rehab") return "flexibility";
+          return cat;
+        })
+      );
+      let workoutType = "strength";
+      if (categories.size === 1) {
+        const singleCat = Array.from(categories)[0];
+        if (singleCat === "cardio" || singleCat === "flexibility" || singleCat === "strength") {
+          workoutType = singleCat;
+        }
+      } else if (categories.size > 1) {
+        workoutType = "mixed";
+      }
+
       const payload = {
         title: `Workout — ${selectedDate}`,
-        workout_type: "strength",
+        workout_type: workoutType,
         exercises: exercises.map((ex, exIdx) => ({
           exercise_id: ex.exercise_id,
           sort_order: exIdx + 1,
