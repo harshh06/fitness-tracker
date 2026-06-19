@@ -19,22 +19,131 @@ interface CompactStepperProps {
 
 function CompactStepper({ value, step = 1, min = 0, unit = "", onChange }: CompactStepperProps) {
   return (
-    <div className="flex items-center bg-surface-container rounded-lg overflow-hidden h-10 w-28 border border-outline-variant/30">
+    <div className="flex items-center bg-surface-container rounded-lg overflow-hidden h-10 w-28 border border-outline-variant/30 px-1">
       <button
         type="button"
         onClick={() => onChange(Math.max(min, value - step))}
-        className="w-8 h-full flex items-center justify-center text-outline hover:bg-surface-variant/20 active:bg-surface-variant/40 transition-colors cursor-pointer"
+        className="w-7 h-full flex items-center justify-center text-outline hover:bg-surface-variant/20 active:bg-surface-variant/40 transition-colors cursor-pointer shrink-0"
       >
         <span className="material-symbols-outlined text-[16px]">remove</span>
       </button>
-      <div className="flex-1 text-center font-label-md text-on-surface">
-        {value}
-        <span className="text-[10px] text-outline ml-0.5">{unit}</span>
+      <div className="flex-1 min-w-0 flex items-center justify-center">
+        <input
+          type="text"
+          value={value.toString()}
+          onChange={(e) => {
+            const isRep = unit === "rep";
+            const regex = isRep ? /[^0-9]/g : /[^0-9.]/g;
+            const rawVal = e.target.value.replace(regex, "");
+            
+            let cleanedVal = rawVal;
+            if (!isRep) {
+              const parts = rawVal.split(".");
+              cleanedVal = parts[0] + (parts.length > 1 ? "." + parts.slice(1).join("") : "");
+            }
+            
+            // Strip leading zeros
+            let formattedVal = cleanedVal;
+            if (formattedVal.startsWith("0") && formattedVal.length > 1 && !formattedVal.startsWith("0.")) {
+              formattedVal = formattedVal.replace(/^0+/, "");
+              if (formattedVal === "" || formattedVal.startsWith(".")) {
+                formattedVal = "0" + formattedVal;
+              }
+            }
+            
+            const val = isRep ? parseInt(formattedVal, 10) : parseFloat(formattedVal);
+            onChange(isNaN(val) ? min : val);
+          }}
+          className="w-9 text-center bg-transparent border-0 outline-none p-0 font-label-md text-on-surface focus:ring-0 focus:outline-none [appearance:textfield]"
+        />
+        {unit && (
+          <span className="text-[10px] text-outline pointer-events-none select-none ml-0.5 shrink-0">
+            {unit}
+          </span>
+        )}
       </div>
       <button
         type="button"
         onClick={() => onChange(value + step)}
-        className="w-8 h-full flex items-center justify-center text-primary hover:bg-primary/10 active:bg-primary/20 transition-colors cursor-pointer"
+        className="w-7 h-full flex items-center justify-center text-primary hover:bg-primary/10 active:bg-primary/20 transition-colors cursor-pointer shrink-0"
+      >
+        <span className="material-symbols-outlined text-[16px]">add</span>
+      </button>
+    </div>
+  );
+}
+
+interface TimeStepperProps {
+  durationSeconds: number;
+  onChange: (seconds: number) => void;
+}
+
+function TimeStepper({ durationSeconds, onChange }: TimeStepperProps) {
+  const mins = Math.floor((durationSeconds ?? 60) / 60);
+  const secs = (durationSeconds ?? 60) % 60;
+
+  const handleMinChange = (newMins: number) => {
+    if (newMins < 0) return;
+    onChange(newMins * 60 + secs);
+  };
+
+  const handleSecChange = (newSecs: number) => {
+    let s = newSecs;
+    if (s < 0) s = 0;
+    if (s >= 60) s = 59;
+    onChange(mins * 60 + s);
+  };
+
+  const handleStepChange = (direction: 1 | -1) => {
+    const step = 30; // 30 seconds
+    const newDuration = Math.max(0, (durationSeconds ?? 60) + direction * step);
+    onChange(newDuration);
+  };
+
+  const formatSeconds = (s: number) => s.toString().padStart(2, '0');
+
+  return (
+    <div className="flex items-center bg-surface-container rounded-lg overflow-hidden h-10 w-28 border border-outline-variant/30 px-1">
+      <button
+        type="button"
+        onClick={() => handleStepChange(-1)}
+        className="w-7 h-full flex items-center justify-center text-outline hover:bg-surface-variant/20 active:bg-surface-variant/40 transition-colors cursor-pointer shrink-0"
+      >
+        <span className="material-symbols-outlined text-[16px]">remove</span>
+      </button>
+      
+      <div className="flex-1 min-w-0 flex items-center justify-center font-label-md text-on-surface">
+        <input
+          type="text"
+          value={mins.toString()}
+          onChange={(e) => {
+            const rawVal = e.target.value.replace(/[^0-9]/g, "");
+            const cleanedVal = rawVal.replace(/^0+/, "") || "0";
+            const val = parseInt(cleanedVal, 10);
+            handleMinChange(isNaN(val) ? 0 : val);
+          }}
+          className="w-6 text-right bg-transparent border-0 outline-none p-0 font-label-md text-on-surface focus:ring-0 focus:outline-none [appearance:textfield]"
+          placeholder="0"
+        />
+        <span className="text-outline-variant/60 mx-0.5 pointer-events-none select-none font-bold text-[12px]">:</span>
+        <input
+          type="text"
+          value={formatSeconds(secs)}
+          onChange={(e) => {
+            const rawVal = e.target.value.replace(/[^0-9]/g, "");
+            const val = parseInt(rawVal, 10);
+            const finalVal = isNaN(val) ? 0 : Math.min(59, val);
+            handleSecChange(finalVal);
+          }}
+          className="w-6 text-left bg-transparent border-0 outline-none p-0 font-label-md text-on-surface focus:ring-0 focus:outline-none [appearance:textfield]"
+          placeholder="00"
+        />
+      </div>
+      
+      <button
+        type="button"
+        onClick={() => handleStepChange(1)}
+        className="w-7 h-full flex items-center justify-center text-primary hover:bg-primary/10 active:bg-primary/20 transition-colors cursor-pointer shrink-0"
       >
         <span className="material-symbols-outlined text-[16px]">add</span>
       </button>
@@ -88,11 +197,8 @@ export function ExerciseCard({
             
             <div className="flex items-center gap-2">
               {category === "cardio" ? (
-                <CompactStepper 
-                  value={set.duration_seconds ?? 60} 
-                  step={10} 
-                  min={10} 
-                  unit="s" 
+                <TimeStepper 
+                  durationSeconds={set.duration_seconds ?? 60} 
                   onChange={(val) => onUpdateSet(idx, { duration_seconds: val })} 
                 />
               ) : (

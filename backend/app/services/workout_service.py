@@ -66,7 +66,7 @@ async def get_workout_with_details(conn, workout_id: str, user_id: str):
 
     # Fetch exercises with names
     exercises = await conn.fetch(
-        """SELECT we.*, el.name AS exercise_name
+        """SELECT we.*, el.name AS exercise_name, el.category AS exercise_category
            FROM workout_exercises we
            JOIN exercise_library el ON we.exercise_id = el.id
            WHERE we.workout_id = $1
