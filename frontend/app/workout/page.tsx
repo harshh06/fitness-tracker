@@ -40,14 +40,14 @@ export default function WorkoutPage() {
   
   const [exercises, setExercises] = useState<LocalExercise[]>([]);
 
-  const handleAddExercise = (exercise: ExerciseSearchResult) => {
+  const handleAddExercise = (exercise: ExerciseSearchResult, customSets?: LocalSet[]) => {
     setExercises((prev) => [
       ...prev,
       {
         exercise_id: exercise.id,
         name: exercise.name,
         category: exercise.category,
-        sets: [
+        sets: customSets || [
           {
             set_number: 1,
             weight: exercise.category === "cardio" ? 0 : (unitPreference === "kg" ? 20 : 45),

@@ -6,6 +6,7 @@ class Setting(BaseSettings) :
     jwt_secret: str
     supabase_jwt_secret: Optional[str] = None
     next_public_supabase_url: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     allowed_origins: str = "http://localhost:3000"
 
     @property
