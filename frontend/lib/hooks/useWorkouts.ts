@@ -41,6 +41,7 @@ export interface WorkoutExercise {
   notes: string | null;
   rest_seconds: number;
   exercise_name: string;
+  exercise_category?: string;
   sets: WorkoutSet[];
 }
 
@@ -112,7 +113,16 @@ export function useWorkouts(pageSize: number = 20) {
 
   const refetch = () => fetchWorkouts(true);
 
-  return { workouts, isLoading, error, hasMore, loadMore, refetch };
+  const deleteWorkout = async (workoutId: string) => {
+    try {
+      await api.delete(`/workouts/${workoutId}`);
+      setWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
+    } catch (err: any) {
+      throw new Error(err?.detail || "Failed to delete workout");
+    }
+  };
+
+  return { workouts, isLoading, error, hasMore, loadMore, refetch, deleteWorkout };
 }
 
 // ── useWorkout (single workout detail) ────────────────────────

@@ -166,6 +166,7 @@ class WorkoutExerciseResponse(BaseModel):
     notes: Optional[str] = None
     rest_seconds: Optional[int] = None
     exercise_name: Optional[str] = None
+    exercise_category: Optional[str] = None
     sets: List[SetResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

@@ -28,19 +28,43 @@ function workoutIcon(type: string): string {
   return map[type] || "fitness_center";
 }
 
+function formatDuration(durationSecs: number | null | undefined): string {
+  if (!durationSecs) return "0:00";
+  const mins = Math.floor(durationSecs / 60);
+  const secs = durationSecs % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
 // ── Workout Card ──────────────────────────────────────────────
 
 function WorkoutCard({
   workout,
   defaultExpanded = false,
+  onDelete,
 }: {
   workout: WorkoutSummary;
   defaultExpanded?: boolean;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { workout: detail, isLoading } = useWorkout(isExpanded ? workout.id : null);
   const { user } = useAuth();
   const unitPreference = user?.unit_preference || "lbs";
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Are you sure you want to delete this workout?")) {
+      try {
+        setIsDeleting(true);
+        await onDelete(workout.id);
+      } catch (err: any) {
+        alert(err?.message || "Failed to delete workout");
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
 
   return (
     <article className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 overflow-hidden">
@@ -116,7 +140,9 @@ function WorkoutCard({
                         <div key={set.id} className="flex justify-between text-sm py-0.5">
                           <span className="font-body-md text-on-surface-variant">Set {set.set_number}</span>
                           <span className="font-body-md text-on-surface font-medium">
-                            {formatWeight(set.weight_lbs || 0, unitPreference)} {unitPreference} × {set.reps}
+                            {exercise.exercise_category === "cardio"
+                              ? formatDuration(set.duration_seconds)
+                              : `${formatWeight(set.weight_lbs || 0, unitPreference)} ${unitPreference} × ${set.reps}`}
                           </span>
                         </div>
                       ))}
@@ -140,6 +166,21 @@ function WorkoutCard({
                 <p className="font-body-md text-on-surface text-sm">{workout.notes}</p>
               </div>
             )}
+
+            <div className="flex justify-end mt-4 pt-3 border-t border-outline-variant/10">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="text-error hover:text-error hover:bg-error/10 rounded-lg min-h-[36px] flex items-center gap-1.5 cursor-pointer font-label-md bg-transparent"
+              >
+                <span className={cn("material-symbols-outlined text-[18px]", isDeleting && "animate-spin")}>
+                  {isDeleting ? "sync" : "delete"}
+                </span>
+                {isDeleting ? "Deleting..." : "Delete Workout"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -164,7 +205,7 @@ function CardSkeleton() {
 // ── Page ──────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const { workouts, isLoading, hasMore, loadMore } = useWorkouts(20);
+  const { workouts, isLoading, hasMore, loadMore, deleteWorkout } = useWorkouts(20);
 
   return (
     <main className="flex-1 w-full max-w-2xl mx-auto px-container-margin pt-24 pb-32">
@@ -183,7 +224,12 @@ export default function HistoryPage() {
         ) : workouts.length > 0 ? (
           <>
             {workouts.map((w, idx) => (
-              <WorkoutCard key={w.id} workout={w} defaultExpanded={idx === 0} />
+              <WorkoutCard 
+                key={w.id} 
+                workout={w} 
+                defaultExpanded={idx === 0} 
+                onDelete={deleteWorkout}
+              />
             ))}
             {hasMore && (
               <Button

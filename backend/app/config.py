@@ -1,11 +1,11 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 
 class Setting(BaseSettings) :
     database_url: str
     jwt_secret: str
-    supabase_jwt_secret: str
-    next_public_supabase_url: str
+    supabase_jwt_secret: Optional[str] = None
+    next_public_supabase_url: Optional[str] = None
     allowed_origins: str = "http://localhost:3000"
 
     @property
