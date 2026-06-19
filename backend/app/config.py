@@ -4,8 +4,8 @@ from typing import List
 class Setting(BaseSettings) :
     database_url: str
     jwt_secret: str
-    supabase_jwt_secret: str = ""
-    next_public_supabase_url: str = ""
+    supabase_jwt_secret: str
+    next_public_supabase_url: str
     allowed_origins: str = "http://localhost:3000"
 
     @property

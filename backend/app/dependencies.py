@@ -1,10 +1,15 @@
 
 from jose import jwt, JWTError
+from jose.exceptions import ExpiredSignatureError, JWTClaimsError
 from app.config import settings
 import asyncpg
 import httpx
+import logging
+import html
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+logger = logging.getLogger(__name__)
 
 pool: asyncpg.Pool | None = None
 
@@ -103,12 +108,29 @@ async def get_current_user(
             metadata = payload.get("user_metadata", {}) or {}
             display_name = metadata.get("display_name") or metadata.get("full_name") or metadata.get("name")
             if display_name:
+                # Sanitize name to prevent Stored XSS
+                sanitized_name = html.escape(str(display_name))[:100]
                 await conn.execute(
                     "UPDATE profiles SET display_name = $1 WHERE user_id = $2",
-                    display_name, user_id
+                    sanitized_name, user_id
                 )
         return user_id
+
+    except HTTPException:
+        # Re-raise explicit HTTPExceptions we threw ourselves
+        raise
+    except ExpiredSignatureError as e:
+        logger.warning(f"JWT Verification failed: Token has expired. Details: {e}")
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except JWTClaimsError as e:
+        logger.warning(f"JWT Verification failed: Invalid claims. Details: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token claims")
+    except JWTError as e:
+        logger.warning(f"JWT Verification failed: Invalid signature or format. Details: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token signature or format")
+    except httpx.HTTPError as e:
+        logger.error(f"JWKS retrieval failed: Network or HTTP error. Details: {e}")
+        raise HTTPException(status_code=502, detail="Failed to verify token against identity provider")
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+        logger.error(f"Unexpected authentication error: {e}", exc_info=True)
+        raise HTTPException(status_code=401, detail="Authentication failed due to an unexpected error")
