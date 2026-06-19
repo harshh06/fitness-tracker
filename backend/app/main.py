@@ -4,7 +4,7 @@ from fastapi import Depends
 from contextlib import asynccontextmanager
 from app import dependencies
 from app.config import settings
-from app.routers import profile, exercise_library, workouts, analytics
+from app.routers import profile, exercise_library, workouts, analytics, voice
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncpg
@@ -33,6 +33,7 @@ app.include_router(profile.router, tags=["Profile"])
 app.include_router(exercise_library.router, tags=["Exercises"])
 app.include_router(workouts.router, tags=["Workouts"])
 app.include_router(analytics.router, tags=["Analytics"])
+app.include_router(voice.router, tags=["Voice"])
 
 @app.get("/")
 async def home():
