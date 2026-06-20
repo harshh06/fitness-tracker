@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { name: "Workout", href: "/workout", icon: "fitness_center" },
   { name: "Coach", href: "/coach", icon: "psychology" },
   { name: "History", href: "/history", icon: "history" },
-  { name: "Profile", href: "/profile", icon: "person" },
 ];
 
 export default function BottomNav() {

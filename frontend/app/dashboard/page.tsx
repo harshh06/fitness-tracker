@@ -91,11 +91,9 @@ export default function DashboardPage() {
     <main className="px-container-margin py-stack-space-lg flex flex-col gap-stack-space-lg pt-20 pb-32">
       {/* Greeting Section */}
       <section className="flex flex-col gap-unit">
-        <h2 className="font-label-lg text-on-surface-variant uppercase tracking-wider">
-          Today&apos;s Focus
-        </h2>
-        <h1 className="font-headline-lg text-headline-lg text-on-surface">
-          {user?.display_name ? `Hey ${user.display_name}!` : "Ready to crush it?"}
+        
+        <h1 className="font-headline-lg text-headline-lg text-on-surface mt-4 align-">
+          {/* {user?.display_name ? `Hey ${user.display_name}!` : "Ready to crush it?"} */}
         </h1>
       </section>
 

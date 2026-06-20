@@ -87,36 +87,26 @@ app.dependency_overrides[get_current_user] = mock_get_current_user
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_database_after_tests():
-    import asyncio
-    import asyncpg
+    import psycopg2
     from app.config import settings
 
-    async def clean():
+    def clean():
         try:
-            conn = await asyncpg.connect(settings.database_url)
-            deleted = await conn.execute(
-                "DELETE FROM users WHERE email LIKE '%@example.com' OR email = 'mock@example.com';"
-            )
-            await conn.close()
-            print(f"\nDatabase cleanup: {deleted} test users/profiles removed.")
+            conn = psycopg2.connect(settings.database_url)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM users WHERE email LIKE '%@example.com' OR email = 'mock@example.com';"
+                )
+            conn.commit()
+            conn.close()
         except Exception as e:
             print(f"\nDatabase cleanup failed: {e}")
 
-    def run_cleanup():
-        try:
-            loop = asyncio.get_running_loop()
-            if loop.is_running():
-                # If there's an active loop, schedule the coroutine
-                loop.create_task(clean())
-        except RuntimeError:
-            # Fallback if no loop is running in the current thread
-            asyncio.run(clean())
-
     # 1. Clean BEFORE tests start (removes any leftovers from previously aborted runs)
-    run_cleanup()
+    clean()
 
     yield
 
     # 2. Clean AFTER all tests finish
-    run_cleanup()
+    clean()
 

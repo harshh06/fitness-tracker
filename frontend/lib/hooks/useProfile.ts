@@ -44,6 +44,7 @@ interface ProfileUpdateFields {
   height_cm?: number;
   unit_preference?: string;
   fitness_level?: string;
+  avatar_url?: string;
 }
 
 interface HealthConditionCreate {
