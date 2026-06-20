@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ExerciseCard } from "@/components/workout/ExerciseCard";
 import { DateSelectionModal } from "@/components/workout/DateSelectionModal";
@@ -39,6 +38,53 @@ export default function WorkoutPage() {
   const [selectedDate, setSelectedDate] = useState("Today");
   
   const [exercises, setExercises] = useState<LocalExercise[]>([]);
+  const [isRestored, setIsRestored] = useState(false);
+
+  // Restore workout draft from localStorage on mount
+  useEffect(() => {
+    const savedExercises = localStorage.getItem("active_workout_exercises");
+    const savedDate = localStorage.getItem("active_workout_date");
+    if (savedExercises) {
+      try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setExercises(JSON.parse(savedExercises));
+      } catch (e) {
+        console.error("Failed to parse saved workout exercises:", e);
+      }
+    }
+    if (savedDate) {
+      setSelectedDate(savedDate);
+    }
+    setIsRestored(true);
+  }, []);
+
+  // Save exercises to localStorage when they change
+  useEffect(() => {
+    if (!isRestored) return;
+    if (exercises.length > 0) {
+      localStorage.setItem("active_workout_exercises", JSON.stringify(exercises));
+    } else {
+      localStorage.removeItem("active_workout_exercises");
+    }
+  }, [exercises, isRestored]);
+
+  // Save selected date to localStorage when it changes
+  useEffect(() => {
+    if (!isRestored) return;
+    localStorage.setItem("active_workout_date", selectedDate);
+  }, [selectedDate, isRestored]);
+
+  const handleCancel = () => {
+    if (exercises.length > 0) {
+      const confirmDiscard = window.confirm(
+        "You have unsaved exercises. Are you sure you want to discard this workout?"
+      );
+      if (!confirmDiscard) return;
+    }
+    localStorage.removeItem("active_workout_exercises");
+    localStorage.removeItem("active_workout_date");
+    router.push("/dashboard");
+  };
 
   const handleAddExercise = (exercise: ExerciseSearchResult, customSets?: LocalSet[]) => {
     setExercises((prev) => [
@@ -148,6 +194,8 @@ export default function WorkoutPage() {
       };
 
       await api.post("/workouts", payload);
+      localStorage.removeItem("active_workout_exercises");
+      localStorage.removeItem("active_workout_date");
 
       router.push("/dashboard");
     } catch (err) {
@@ -160,9 +208,12 @@ export default function WorkoutPage() {
   return (
     <div className="flex-1 flex flex-col min-h-screen pb-[160px] bg-surface">
       <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur-md px-container-margin py-4 flex items-center justify-between border-b border-surface-variant">
-        <Link href="/dashboard" className="text-primary font-label-lg active:opacity-70 transition-opacity">
+        <button 
+          onClick={handleCancel}
+          className="text-primary font-label-lg active:opacity-70 transition-opacity cursor-pointer bg-transparent border-0 p-0"
+        >
           Cancel
-        </Link>
+        </button>
         <button 
           onClick={() => setIsDateModalOpen(true)}
           className="flex items-center gap-1 cursor-pointer active:opacity-70 transition-opacity min-h-[44px] px-2 rounded-lg hover:bg-surface-container"
