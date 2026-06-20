@@ -72,8 +72,8 @@ async def mock_get_current_user(
         user_exists = await conn.fetchval("SELECT 1 FROM users WHERE id = $1", token)
         if not user_exists:
             await conn.execute(
-                "INSERT INTO users (id, email, password_hash) VALUES ($1, 'mock@example.com', '')",
-                token
+                "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, '')",
+                token, f"mock_{token}@example.com"
             )
         return token
     except ValueError:

@@ -100,20 +100,73 @@ async def get_current_user(
         # Sync user to local database if not exists
         user_exists = await conn.fetchval("SELECT 1 FROM users WHERE id = $1", user_id)
         if not user_exists:
-            await conn.execute(
-                "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, '')",
-                user_id, email
-            )
-            # Sync display name from JWT user_metadata if available
-            metadata = payload.get("user_metadata", {}) or {}
-            display_name = metadata.get("display_name") or metadata.get("full_name") or metadata.get("name")
-            if display_name:
-                # Sanitize name to prevent Stored XSS
-                sanitized_name = html.escape(str(display_name))[:100]
+            # Check if user already exists with the same email (legacy user)
+            legacy_user_id = await conn.fetchval("SELECT id FROM users WHERE email = $1", email)
+            if legacy_user_id:
+                logger.info(f"Migrating legacy user {email} from {legacy_user_id} to {user_id}")
+                async with conn.transaction():
+                    # 1. Rename legacy user's email to release the UNIQUE constraint on email
+                    legacy_email_temp = f"{email}_legacy_{legacy_user_id}"
+                    await conn.execute(
+                        "UPDATE users SET email = $1 WHERE id = $2",
+                        legacy_email_temp, legacy_user_id
+                    )
+                    await conn.execute(
+                        "UPDATE profiles SET email = $1 WHERE user_id = $2",
+                        legacy_email_temp, legacy_user_id
+                    )
+                    # 2. Insert the new user with Supabase ID and original email
+                    # (This fires the handle_new_user trigger to create the profile)
+                    await conn.execute(
+                        "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, '')",
+                        user_id, email
+                    )
+                    # 3. Copy profile data from old to new profile
+                    await conn.execute(
+                        """
+                        UPDATE profiles SET
+                            display_name = old.display_name,
+                            date_of_birth = old.date_of_birth,
+                            gender = old.gender,
+                            height_cm = old.height_cm,
+                            weight_kg = old.weight_kg,
+                            fitness_level = old.fitness_level,
+                            avatar_url = old.avatar_url,
+                            unit_preference = old.unit_preference,
+                            created_at = old.created_at,
+                            updated_at = old.updated_at
+                        FROM profiles old
+                        WHERE profiles.user_id = $1 AND old.user_id = $2
+                        """,
+                        user_id, legacy_user_id
+                    )
+                    # 4. Update referencing tables
+                    await conn.execute("UPDATE health_conditions SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE exercise_library SET created_by = $1 WHERE created_by = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE workouts SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE body_measurements SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE workout_templates SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE personal_records SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE coach_conversations SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    await conn.execute("UPDATE monthly_summaries SET user_id = $1 WHERE user_id = $2", user_id, legacy_user_id)
+                    
+                    # 5. Delete legacy user (which will cascade-delete the old profile)
+                    await conn.execute("DELETE FROM users WHERE id = $1", legacy_user_id)
+            else:
                 await conn.execute(
-                    "UPDATE profiles SET display_name = $1 WHERE user_id = $2",
-                    sanitized_name, user_id
+                    "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, '')",
+                    user_id, email
                 )
+                # Sync display name from JWT user_metadata if available
+                metadata = payload.get("user_metadata", {}) or {}
+                display_name = metadata.get("display_name") or metadata.get("full_name") or metadata.get("name")
+                if display_name:
+                    # Sanitize name to prevent Stored XSS
+                    sanitized_name = html.escape(str(display_name))[:100]
+                    await conn.execute(
+                        "UPDATE profiles SET display_name = $1 WHERE user_id = $2",
+                        sanitized_name, user_id
+                    )
         return user_id
 
     except HTTPException:
